@@ -214,18 +214,34 @@ class BrowserManager:
             opts.add_argument("--log-level=3")
             opts.page_load_strategy = "eager"
 
-            # Try to use specified chromedriver
-            driver_path = Config.CHROMEDRIVER_PATH
+            # Try to use specified chromedriver, fallback to Selenium Manager on mismatch
+            driver_path = (Config.CHROMEDRIVER_PATH or "").strip()
+            if driver_path.lower() in {"auto", "none", "false", "0"}:
+                driver_path = ""
+
             if driver_path and not os.path.isabs(driver_path):
                 driver_path = str(Path(__file__).resolve().parent / driver_path)
 
-            if driver_path and os.path.exists(driver_path):
-                try:
-                    devnull = open(os.devnull, "w")
-                    service = Service(driver_path, service_args=["--log-level=OFF"], log_output=devnull)
-                except Exception:
-                    service = Service(driver_path)
-                self.driver = webdriver.Chrome(service=service, options=opts)
+            if driver_path:
+                if os.path.exists(driver_path):
+                    try:
+                        devnull = open(os.devnull, "w")
+                        service = Service(driver_path, service_args=["--log-level=OFF"], log_output=devnull)
+                    except Exception:
+                        service = Service(driver_path)
+
+                    try:
+                        self.driver = webdriver.Chrome(service=service, options=opts)
+                    except Exception as e:
+                        self.logger.warning(
+                            f"Local ChromeDriver failed ({str(e)[:200]}). Falling back to Selenium Manager."
+                        )
+                        self.driver = webdriver.Chrome(options=opts)
+                else:
+                    self.logger.warning(
+                        f"ChromeDriver not found at '{driver_path}'. Falling back to Selenium Manager."
+                    )
+                    self.driver = webdriver.Chrome(options=opts)
             else:
                 self.driver = webdriver.Chrome(options=opts)
 
@@ -516,6 +532,15 @@ class ProfileScraper:
     def __init__(self, driver, logger: Logger):
         self.driver = driver
         self.logger = logger
+
+    @staticmethod
+    def _strip_non_bmp(text: str) -> str:
+        if not text:
+            return ""
+        try:
+            return "".join(ch for ch in text if ord(ch) <= 0xFFFF)
+        except Exception:
+            return text
 
     def scrape_profile(self, nickname: str) -> Optional[Dict]:
         """Scrape user profile data"""
@@ -1081,6 +1106,15 @@ class PostCreator:
         self.driver = driver
         self.logger = logger
 
+    @staticmethod
+    def _strip_non_bmp(text: str) -> str:
+        if not text:
+            return ""
+        try:
+            return "".join(ch for ch in text if ord(ch) <= 0xFFFF)
+        except Exception:
+            return text
+
     def _find_share_form(self, require_file: bool) -> Optional[object]:
         forms = self.driver.find_elements(By.CSS_SELECTOR, "form")
         for f in forms:
@@ -1446,11 +1480,13 @@ class PostCreator:
                 # Fill form
                 self.logger.debug(f"Title: {title[:50]}...")
                 if title_input and title:
+                    title = self._strip_non_bmp(title)
                     title_input.clear()
                     title_input.send_keys(title)
                     time.sleep(0.5)
 
                 self.logger.debug(f"Content: {len(content)} chars")
+                content = self._strip_non_bmp(content)
                 content_area.clear()
                 content_area.send_keys(content)
                 time.sleep(0.5)
@@ -1559,6 +1595,7 @@ class PostCreator:
                 caption = self._sanitize_caption(caption)
                 if caption:
                     try:
+                        caption = self._strip_non_bmp(caption)
                         caption_area = form.find_element(By.CSS_SELECTOR, "textarea")
                         caption_area.clear()
                         caption_area.send_keys(caption)
@@ -1581,6 +1618,7 @@ class PostCreator:
                 # Title if available
                 if title:
                     try:
+                        title = self._strip_non_bmp(title)
                         title_input = form.find_element(
                             By.CSS_SELECTOR,
                             "input[name='title'], #id_title"
@@ -2254,12 +2292,29 @@ def run_post_mode(args):
         def get_cell(row: List[str], key: str) -> str:
             if not use_headers:
                 return ""
-            if key not in header_map:
+            k = (key or "").strip().upper()
+            if k not in header_map:
                 return ""
-            j = header_map[key]
+            j = header_map[k]
             if j < 0 or j >= len(row):
                 return ""
             return (row[j] or "").strip()
+
+        def get_any(row: List[str], *keys: str) -> str:
+            for k in keys:
+                val = get_cell(row, k)
+                if val:
+                    return val
+            return ""
+
+        def find_col(*keys: str, default_1_based: int) -> int:
+            if not use_headers:
+                return default_1_based
+            for k in keys:
+                kk = (k or "").strip().upper()
+                if kk in header_map:
+                    return header_map[kk] + 1
+            return default_1_based
 
         def get_legacy(row: List[str], idx: int) -> str:
             if idx < 0 or idx >= len(row):
@@ -2267,10 +2322,10 @@ def run_post_mode(args):
             return (row[idx] or "").strip()
 
         if header_map:
-            col_status = header_map.get("STATUS", 5) + 1
-            col_post_url = header_map.get("POST_URL", 6) + 1
-            col_timestamp = header_map.get("TIMESTAMP", 7) + 1
-            col_notes = header_map.get("NOTES", 8) + 1
+            col_status = find_col("STATUS", "STATU", default_1_based=6)
+            col_post_url = find_col("POST_URL", "RESULT_URL", "RESULT URL", default_1_based=7)
+            col_timestamp = find_col("TIMESTAMP", "TIME", default_1_based=8)
+            col_notes = find_col("NOTES", "NOTE", default_1_based=9)
         else:
             # Fallback to legacy layout if headers are missing
             col_status = 6
@@ -2281,13 +2336,27 @@ def run_post_mode(args):
         pending = []
         for i, row in enumerate(all_rows[1:], start=2):
             if use_headers:
-                post_type = get_cell(row, "TYPE").lower()
-                status = get_cell(row, "STATUS").lower()
-                title = get_cell(row, "TITLE")
-                content = get_cell(row, "CONTENT")
-                image_path = get_cell(row, "IMAGE_PATH")
-                tags = get_cell(row, "TAGS")
-                notes_val = get_cell(row, "NOTES")
+                post_type = get_any(row, "TYPE").lower()
+                status = get_any(row, "STATUS", "STATU").lower()
+
+                title_en = get_any(row, "TITLE_EN", "TITLE_ENG", "TITLE EN", "TITLE")
+                title_ur = get_any(row, "TITLE_UR", "TITLE_URDU", "TITLE UR", "CAPTION")
+                img_link = get_any(row, "IMG_LINK", "IMAGE_PATH", "IMAGE", "IMAGE_URL")
+
+                # User-defined PostQueue rules:
+                # - TYPE=text: use column A (TITLE_EN) as content
+                # - TYPE=image + STATUS=pending: use column C (IMG_LINK) as image URL and column B (TITLE_UR) as caption
+                if post_type == "text":
+                    title = ""
+                    content = title_en
+                    image_path = ""
+                else:
+                    title = title_en
+                    content = title_ur
+                    image_path = img_link
+
+                tags = get_any(row, "TAGS")
+                notes_val = get_any(row, "NOTES", "NOTE")
             else:
                 # Legacy layout: TYPE, TITLE, CONTENT, IMAGE_PATH, TAGS, STATUS, ...
                 post_type = get_legacy(row, 0).lower()

@@ -2437,8 +2437,9 @@ def run_post_mode(args):
 
             for idx, post in enumerate(pending, 1):
                 title = post.get("title") or "Untitled"
-                progress.update(task_id, description=f"{post['type'].upper()}: {title}")
-                logger.info(f"\n[{idx}/{len(pending)}] 📝 {post['type'].upper()}: {title}")
+                row_ref = post.get("row")
+                progress.update(task_id, description=f"{post['type'].upper()} (row {row_ref})")
+                logger.info(f"\n[{idx}/{len(pending)}] 📝 {post['type'].upper()} (row {row_ref})")
                 logger.info("─" * 50)
 
                 try:

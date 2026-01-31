@@ -1,4 +1,7 @@
-# Credentials
+# Exclude .windsurf folder
+.windsurf/*
+!.windsurf/workflows/
+!.windsurf/workflows/**
 .env
 credentials.json
 *.pkl

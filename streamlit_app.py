@@ -30,12 +30,32 @@ def _gs_client(credentials_file: str) -> gspread.Client:
     return gspread.authorize(creds)
 
 
+def _sanitize_headers(headers: list[str]) -> list[str]:
+    cleaned: list[str] = []
+    seen: dict[str, int] = {}
+
+    for i, h in enumerate(headers):
+        base = str(h).strip()
+        if not base:
+            base = f"col_{i + 1}"
+
+        count = seen.get(base, 0) + 1
+        seen[base] = count
+
+        if count == 1:
+            cleaned.append(base)
+        else:
+            cleaned.append(f"{base}_{count}")
+
+    return cleaned
+
+
 def _worksheet_to_df(ws: gspread.Worksheet) -> pd.DataFrame:
     values = ws.get_all_values()
     if not values:
         return pd.DataFrame()
 
-    headers = values[0]
+    headers = _sanitize_headers(values[0])
     rows = values[1:]
     df = pd.DataFrame(rows, columns=headers)
 
@@ -118,7 +138,7 @@ def main() -> None:
     with left:
         st.subheader(f"Worksheet: {selected_title}")
         st.caption(f"Rows: {len(df)} | Columns: {len(df.columns)}")
-        st.dataframe(df, use_container_width=True, height=600)
+        st.dataframe(df, width="stretch", height=600)
 
     with right:
         st.subheader("Metrics")

@@ -1,5 +1,10 @@
+import sys
+from pathlib import Path
+
 import pandas as pd
 import streamlit as st
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from dashboard_utils import (
     FilterState,

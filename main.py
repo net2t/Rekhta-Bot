@@ -158,6 +158,7 @@ class Config:
 
     # Bot Settings
     DEBUG = os.getenv("DD_DEBUG", "0") == "1"
+    DRY_RUN = os.getenv("DD_DRY_RUN", "0").strip().lower() in {"1", "true", "yes", "y"}
     MAX_PROFILES = int(os.getenv("DD_MAX_PROFILES", "0"))
     MAX_POST_PAGES = int(os.getenv("DD_MAX_POST_PAGES", "4") or "4")
     POST_COOLDOWN_SECONDS = int(os.getenv("DD_POST_COOLDOWN_SECONDS", "120") or "120")
@@ -502,6 +503,9 @@ class SheetsManager:
                 self.logger.debug(f"Found sheet: {sheet_name}")
                 return sheet
             except WorksheetNotFound:
+                if Config.DRY_RUN:
+                    self.logger.warning(f"[DRY RUN] Sheet '{sheet_name}' not found (not creating in dry-run)")
+                    return None
                 if not create_if_missing:
                     return None
                 self.logger.warning(f"Sheet '{sheet_name}' not found, creating...")
@@ -513,6 +517,9 @@ class SheetsManager:
 
     def _create_sheet(self, workbook, sheet_name: str):
         """Create new worksheet with appropriate headers"""
+        if Config.DRY_RUN:
+            self.logger.warning(f"[DRY RUN] Skipping sheet creation: {sheet_name}")
+            return None
 
         # Define headers for each sheet type
         headers_map = {
@@ -578,6 +585,9 @@ class SheetsManager:
 
         if not headers:
             try:
+                if Config.DRY_RUN:
+                    self.logger.warning("[DRY RUN] PostQueue headers missing; skipping insert")
+                    return True
                 sheet.insert_row(required, 1)
                 self._format_headers(sheet, len(required))
                 self.logger.success("PostQueue headers inserted")
@@ -593,6 +603,9 @@ class SheetsManager:
 
         new_headers = headers + missing
         try:
+            if Config.DRY_RUN:
+                self.logger.warning(f"[DRY RUN] PostQueue missing headers ({', '.join(missing)}); skipping update")
+                return True
             end_cell = rowcol_to_a1(1, len(new_headers))
             sheet.update(values=[new_headers], range_name=f"A1:{end_cell}")
             self._format_headers(sheet, len(new_headers))
@@ -604,6 +617,8 @@ class SheetsManager:
 
     def _format_headers(self, sheet, col_count: int):
         """Freeze header row and apply basic formatting."""
+        if Config.DRY_RUN:
+            return
         try:
             sheet.freeze(rows=1)
             header_range = f"A1:{rowcol_to_a1(1, col_count)}"
@@ -620,6 +635,9 @@ class SheetsManager:
 
     def update_cell(self, sheet, row: int, col: int, value, retries: int = 3):
         """Update cell with retry logic"""
+        if Config.DRY_RUN:
+            self.logger.debug(f"[DRY RUN] update_cell({row},{col})={str(value)[:120]}")
+            return True
         for attempt in range(retries):
             try:
                 self.api_calls += 1
@@ -635,6 +653,9 @@ class SheetsManager:
 
     def append_row(self, sheet, values: list, retries: int = 3):
         """Append row with retry logic"""
+        if Config.DRY_RUN:
+            self.logger.debug(f"[DRY RUN] append_row(len={len(values)})")
+            return True
         for attempt in range(retries):
             try:
                 self.api_calls += 1
@@ -1084,6 +1105,9 @@ class MessageSender:
 
     def send_message(self, post_url: str, message: str, nick: str = "") -> Dict:
         """Send message to a post and verify"""
+        if Config.DRY_RUN:
+            self.logger.info(f"[DRY RUN] Would send message to {post_url} (nick={nick})")
+            return {"status": "Dry Run", "url": post_url}
         try:
             self.logger.debug(f"Opening post: {post_url}")
             self.driver.get(post_url)
@@ -1317,6 +1341,9 @@ class PostCreator:
 
     def create_text_post(self, title: str, content: str, tags: str = "") -> Dict:
         """Create a text post"""
+        if Config.DRY_RUN:
+            self.logger.info("[DRY RUN] Would create text post")
+            return {"status": "Dry Run", "url": ""}
         try:
             self.logger.info("Creating text post...")
             self.driver.get(f"{Config.BASE_URL}/share/text/")
@@ -1401,6 +1428,9 @@ class PostCreator:
 
     def create_image_post(self, image_path: str, title: str = "", content: str = "", tags: str = "") -> Dict:
         """Create an image post from local file or remote URL (download to temp)."""
+        if Config.DRY_RUN:
+            self.logger.info("[DRY RUN] Would create image post")
+            return {"status": "Dry Run", "url": ""}
         try:
             self.logger.info("Creating image post...")
 
@@ -2003,6 +2033,8 @@ class PostQueueLinkPopulator:
         return items
 
     def populate(self, sheet, header_map: Dict[str, int], max_rows: int = 0, preview_only: bool = False) -> int:
+        if Config.DRY_RUN:
+            preview_only = True
         if not self.driver:
             return 0
 
@@ -2591,6 +2623,9 @@ class InboxMonitor:
 
     def send_reply(self, conv_url: str, reply_text: str) -> bool:
         """Send reply in a conversation"""
+        if Config.DRY_RUN:
+            self.logger.info(f"[DRY RUN] Would reply to {conv_url} ({len(reply_text)} chars)")
+            return True
         try:
             self.logger.debug(f"Opening conversation: {conv_url}")
             self.driver.get(conv_url)
@@ -2989,7 +3024,7 @@ def run_message_mode(args):
 
                 # Update sheet based on result
                 timestamp = datetime.now().strftime("%I:%M %p")
-                if "Posted" in result["status"]:
+                if result.get("status") == "Dry Run" or "Posted" in result["status"]:
                     logger.success("✅ SUCCESS - Message posted!")
                     logger.info(f"🔗 URL: {result['url']}")
                     sheets_mgr.update_cell(msglist, row_num, status_col or 8, "Done")
@@ -3634,7 +3669,7 @@ def run_post_mode(args):
 
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     attempt_num = int(post.get("attempt") or 1)
-                    if result and "Posted" in result["status"]:
+                    if result and (result.get("status") == "Dry Run" or "Posted" in result["status"]):
                         consecutive_denied = 0
                         sheets_mgr.update_cell(post_queue, post["row"], col_status, "Done")
                         sheets_mgr.update_cell(post_queue, post["row"], col_post_url, result["url"])
@@ -3992,12 +4027,24 @@ def main():
     )
 
     parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Run without posting/sending and without writing to Google Sheets"
+    )
+
+    parser.add_argument(
         "--no-menu",
         action="store_true",
         help="Disable interactive menu and use defaults"
     )
 
     args = parser.parse_args()
+
+    # Allow CLI flag to override env-configured dry-run at runtime.
+    try:
+        Config.DRY_RUN = bool(Config.DRY_RUN or getattr(args, "dry_run", False))
+    except Exception:
+        pass
 
     def _prompt_int(prompt: str, default: int) -> int:
         try:

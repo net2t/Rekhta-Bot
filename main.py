@@ -75,7 +75,7 @@ def _print_sheet_context(logger: "Logger"):
     try:
         url = _sheet_url(Config.SHEET_ID)
         if url:
-            logger.info(f"📎 Google Sheet: {url}")
+            logger.info("📎 Sheet Link")
     except Exception:
         pass
 
@@ -129,10 +129,44 @@ def run_logs_mode():
             for r in tail:
                 logger.info(" | ".join([(c or "").strip() for c in r]))
 
-        _tail_sheet("ActivityLog", limit=20)
+        _tail_sheet("Logs", limit=20)
         _tail_sheet("ConversationLog", limit=20)
     finally:
         logger.info(f"\n📝 Log: {logger.log_file}")
+
+
+def run_setup_mode():
+    logger = Logger("setup")
+    logger.info("=" * 70)
+    logger.info(f"DamaDam Bot V{VERSION} - SETUP")
+    logger.info("=" * 70)
+
+    sheets_mgr = SheetsManager(logger)
+    if not sheets_mgr.connect():
+        logger.error("Sheets connection failed")
+        return
+
+    _print_sheet_context(logger)
+
+    required_sheets = [
+        "MsgList",
+        "PostQueue",
+        "InboxQueue",
+        "MsgHistory",
+        "PostHistory",
+        "Logs",
+        "ConversationLog",
+    ]
+
+    for name in required_sheets:
+        sheet = sheets_mgr.get_sheet(Config.SHEET_ID, name, create_if_missing=True)
+        if sheet:
+            sheets_mgr.style_sheet(sheet)
+            logger.success(f"✅ Sheet ready: {name}")
+        else:
+            logger.warning(f"⚠️ Sheet missing: {name}")
+
+    logger.info(f"\n📝 Log: {logger.log_file}")
 
 # ============================================================================
 # CONFIGURATION
@@ -549,7 +583,11 @@ class SheetsManager:
                 "TIMESTAMP", "NICK", "NAME", "MESSAGE", "POST_URL",
                 "STATUS", "RESULT_URL"
             ],
-            "ActivityLog": [
+            "PostHistory": [
+                "TIMESTAMP", "TYPE", "TITLE", "IMAGE_PATH", "POST_URL",
+                "STATUS", "NOTES"
+            ],
+            "Logs": [
                 "TIMESTAMP", "MODE", "ACTION", "NICK", "URL", "STATUS", "DETAILS"
             ],
             "ConversationLog": [
@@ -627,13 +665,145 @@ class SheetsManager:
             sheet.format(
                 header_range,
                 {
-                    "textFormat": {"bold": True},
+                    "textFormat": {
+                        "bold": True,
+                        "fontFamily": "Quantico",
+                        "foregroundColor": {"red": 0.98, "green": 0.98, "blue": 0.98}
+                    },
                     "horizontalAlignment": "CENTER",
-                    "backgroundColor": {"red": 0.91, "green": 0.94, "blue": 0.98}
+                    "backgroundColor": {"red": 0.12, "green": 0.14, "blue": 0.18}
                 }
             )
         except Exception as e:
             self.logger.debug(f"Header formatting failed: {e}")
+
+    def _apply_row_banding(self, sheet, col_count: int, row_count: int = 1000):
+        if Config.DRY_RUN:
+            return
+        try:
+            req = {
+                "addBanding": {
+                    "bandedRange": {
+                        "range": {
+                            "sheetId": sheet.id,
+                            "startRowIndex": 1,
+                            "endRowIndex": row_count,
+                            "startColumnIndex": 0,
+                            "endColumnIndex": col_count
+                        },
+                        "rowProperties": {
+                            "firstBandColor": {"red": 0.98, "green": 0.99, "blue": 1.0},
+                            "secondBandColor": {"red": 0.95, "green": 0.96, "blue": 0.98}
+                        }
+                    }
+                }
+            }
+            sheet.spreadsheet.batch_update({"requests": [req]})
+        except Exception as e:
+            self.logger.debug(f"Row banding failed: {e}")
+
+    def _apply_dropdowns(self, sheet, header_map: Dict[str, int]):
+        if Config.DRY_RUN:
+            return
+        try:
+            requests = []
+
+            def _add_dropdown(col_idx: int, values: List[str]):
+                if col_idx < 1:
+                    return
+                requests.append({
+                    "setDataValidation": {
+                        "range": {
+                            "sheetId": sheet.id,
+                            "startRowIndex": 1,
+                            "endRowIndex": 1000,
+                            "startColumnIndex": col_idx - 1,
+                            "endColumnIndex": col_idx
+                        },
+                        "rule": {
+                            "condition": {
+                                "type": "ONE_OF_LIST",
+                                "values": [{"userEnteredValue": v} for v in values]
+                            },
+                            "showCustomUi": True,
+                            "strict": True
+                        }
+                    }
+                })
+
+            def _add_color_rule(col_idx: int, text_value: str, color: Dict[str, float]):
+                requests.append({
+                    "addConditionalFormatRule": {
+                        "rule": {
+                            "ranges": [{
+                                "sheetId": sheet.id,
+                                "startRowIndex": 1,
+                                "endRowIndex": 1000,
+                                "startColumnIndex": col_idx - 1,
+                                "endColumnIndex": col_idx
+                            }],
+                            "booleanRule": {
+                                "condition": {
+                                    "type": "TEXT_EQ",
+                                    "values": [{"userEnteredValue": text_value}]
+                                },
+                                "format": {
+                                    "backgroundColor": color,
+                                    "textFormat": {"bold": True}
+                                }
+                            }
+                        },
+                        "index": 0
+                    }
+                })
+
+            def _find(*keys: str) -> int:
+                for k in keys:
+                    kk = (k or "").strip().upper()
+                    if kk in header_map:
+                        return header_map[kk] + 1
+                return 0
+
+            status_col = _find("STATUS", "STATU")
+            type_col = _find("TYPE")
+
+            if status_col:
+                status_values = ["Pending", "Done", "Failed", "Skipped", "Repeating", "Sent"]
+                _add_dropdown(status_col, status_values)
+                _add_color_rule(status_col, "Pending", {"red": 0.99, "green": 0.91, "blue": 0.7})
+                _add_color_rule(status_col, "Done", {"red": 0.8, "green": 0.95, "blue": 0.8})
+                _add_color_rule(status_col, "Failed", {"red": 0.98, "green": 0.8, "blue": 0.8})
+                _add_color_rule(status_col, "Skipped", {"red": 0.9, "green": 0.9, "blue": 0.9})
+                _add_color_rule(status_col, "Repeating", {"red": 1.0, "green": 0.9, "blue": 0.75})
+                _add_color_rule(status_col, "Sent", {"red": 0.82, "green": 0.9, "blue": 1.0})
+
+            if type_col:
+                type_values = ["text", "image"]
+                _add_dropdown(type_col, type_values)
+                _add_color_rule(type_col, "text", {"red": 0.88, "green": 0.92, "blue": 1.0})
+                _add_color_rule(type_col, "image", {"red": 0.95, "green": 0.9, "blue": 0.8})
+
+            if requests:
+                sheet.spreadsheet.batch_update({"requests": requests})
+        except Exception as e:
+            self.logger.debug(f"Dropdown styling failed: {e}")
+
+    def style_sheet(self, sheet) -> None:
+        if Config.DRY_RUN or not sheet:
+            return
+        try:
+            headers = sheet.row_values(1)
+        except Exception:
+            headers = []
+        col_count = len(headers) if headers else 1
+        header_map: Dict[str, int] = {}
+        for idx, h in enumerate(headers):
+            key = (h or "").strip().upper()
+            if key and key not in header_map:
+                header_map[key] = idx
+        self._format_headers(sheet, col_count)
+        self._apply_row_banding(sheet, col_count)
+        self._apply_dropdowns(sheet, header_map)
 
     def update_cell(self, sheet, row: int, col: int, value, retries: int = 3):
         """Update cell with retry logic"""
@@ -652,6 +822,20 @@ class SheetsManager:
                 self.logger.debug(f"Retry {attempt+1}/{retries} for cell ({row},{col})")
                 time.sleep(2 ** attempt)
         return False
+
+    def delete_rows(self, sheet, start: int, end: Optional[int] = None):
+        if Config.DRY_RUN:
+            self.logger.debug(f"[DRY RUN] delete_rows({start}, {end})")
+            return True
+        try:
+            if end is None or end <= start:
+                sheet.delete_rows(start)
+            else:
+                sheet.delete_rows(start, end)
+            return True
+        except Exception as e:
+            self.logger.warning(f"Delete rows failed: {e}")
+            return False
 
     def append_row(self, sheet, values: list, retries: int = 3):
         """Append row with retry logic"""
@@ -718,7 +902,14 @@ class ProfileScraper:
         except Exception:
             src = ""
         low = src.lower()
-        # best-effort: site indicates duplicate/repeat upload
+        # Exact matches from the actual duplicate-image page
+        if "<title>duplicate image | damadam</title>" in low:
+            return True
+        if "duplicate image!" in low:
+            return True
+        if "is jesa image pehle upload ho chuka hai" in low:
+            return True
+        # Fallback generic keywords (kept for robustness)
         if "repeat" in low or "repeating" in low or "already" in low:
             return True
         if "same image" in low or "duplicate" in low or "pehle" in low:
@@ -1084,6 +1275,29 @@ class MessageRecorder:
         self.logger.debug(f"Recorded message history for: {nick}")
 
 
+class PostHistoryRecorder:
+    """Records post history into PostHistory sheet"""
+
+    def __init__(self, sheets_manager: SheetsManager, logger: Logger):
+        self.sheets = sheets_manager
+        self.logger = logger
+        self.history_sheet = None
+
+    def initialize(self) -> bool:
+        self.history_sheet = self.sheets.get_sheet(Config.SHEET_ID, "PostHistory")
+        if self.history_sheet:
+            self.logger.debug("Post history tracking enabled")
+            return True
+        return False
+
+    def record_post(self, post_type: str, title: str, image_path: str,
+                    post_url: str, status: str, notes: str = ""):
+        if not self.history_sheet:
+            return
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        values = [timestamp, post_type, title, image_path, post_url, status, notes]
+        self.sheets.append_row(self.history_sheet, values)
+
 class ActivityLogger:
     def __init__(self, sheets_manager: SheetsManager, logger: Logger):
         self.sheets = sheets_manager
@@ -1091,7 +1305,7 @@ class ActivityLogger:
         self.sheet = None
 
     def initialize(self) -> bool:
-        self.sheet = self.sheets.get_sheet(Config.SHEET_ID, "ActivityLog")
+        self.sheet = self.sheets.get_sheet(Config.SHEET_ID, "Logs")
         return bool(self.sheet)
 
     def log(self, mode: str, action: str, nick: str = "", url: str = "", status: str = "", details: str = ""):
@@ -2774,11 +2988,11 @@ def run_message_mode(args):
 
     try:
         # Login
-        logger.info("🔐 Authenticating...")
+        logger.info("🔐 Login...")
         if not browser_mgr.login():
             logger.error("Login failed - check credentials")
             return
-        logger.success("✅ Login successful\n")
+        logger.success("✅ Login Success\n")
 
         # Connect to Google Sheets
         logger.info("📊 Connecting to Google Sheets...")
@@ -2786,7 +3000,7 @@ def run_message_mode(args):
         if not sheets_mgr.connect():
             logger.error("Sheets connection failed")
             return
-        logger.success("✅ Sheets connected\n")
+        logger.success("✅ Sheet Connected\n")
 
         activity = ActivityLogger(sheets_mgr, logger)
         activity.initialize()
@@ -3214,6 +3428,28 @@ def run_populate_mode(args):
             logger.warning("PostQueue needs IMAGE_PATH and TITLE columns to populate.")
             return
 
+        # Remove duplicate IMAGE_PATH rows (keep first occurrence)
+        if col_image_path is not None:
+            seen = set()
+            delete_rows = []
+            for idx, row in enumerate(all_rows[1:], start=2):
+                if len(row) <= col_image_path:
+                    continue
+                img_val = (row[col_image_path] or "").strip().lower()
+                if not img_val:
+                    continue
+                if img_val in seen:
+                    delete_rows.append(idx)
+                else:
+                    seen.add(img_val)
+
+            if delete_rows:
+                logger.warning(f"Found {len(delete_rows)} duplicate IMAGE_PATH rows. Removing...")
+                for r in reversed(delete_rows):
+                    sheets_mgr.delete_rows(post_queue, r)
+                sheets_mgr.api_calls += 1
+                all_rows = post_queue.get_all_values()
+
         existing_links = set()
         if col_image_path is not None:
             for row in all_rows[1:]:
@@ -3419,15 +3655,25 @@ def run_post_mode(args):
         return
 
     try:
+        logger.info("🔐 Login...")
         if not browser_mgr.login():
+            logger.error("Login failed - check credentials")
             return
+        logger.success("✅ Login Success\n")
 
         sheets_mgr = SheetsManager(logger)
+        logger.info("📊 Connecting to Google Sheets...")
         if not sheets_mgr.connect():
+            logger.error("Sheets connection failed")
             return
+        logger.success("✅ Sheet Connected\n")
 
         activity = ActivityLogger(sheets_mgr, logger)
         activity.initialize()
+        conv_logger = ConversationLogger(sheets_mgr, logger)
+        conv_logger.initialize()
+        post_history = PostHistoryRecorder(sheets_mgr, logger)
+        post_history.initialize()
 
         creator = PostCreator(driver, logger)
         post_queue = sheets_mgr.get_sheet(Config.SHEET_ID, "PostQueue")
@@ -3548,15 +3794,6 @@ def run_post_mode(args):
 
             should_run = status.startswith("pending")
             attempt_num = 1
-            if not should_run and Config.POST_RETRY_FAILED and status.startswith("failed"):
-                try:
-                    m = re.search(r"attempt\s*(\d+)", (notes_val or "").lower())
-                    if m:
-                        attempt_num = int(m.group(1)) + 1
-                except Exception:
-                    attempt_num = 1
-                if attempt_num <= max(1, Config.POST_MAX_ATTEMPTS):
-                    should_run = True
 
             if not should_run:
                 continue
@@ -3642,8 +3879,9 @@ def run_post_mode(args):
 
                 try:
                     result = None
+                    row_handled = False
 
-                    denied_retries = max(0, int(Config.POST_DENIED_RETRIES))
+                    denied_retries = 0
                     for denied_try in range(0, denied_retries + 1):
                         # Small randomized delay before each attempt to reduce rate-limit patterns
                         pre = _jitter_seconds(Config.POST_PRE_SUBMIT_DELAY_SECONDS, Config.POST_PRE_SUBMIT_JITTER_SECONDS)
@@ -3669,73 +3907,57 @@ def run_post_mode(args):
                             sheets_mgr.update_cell(post_queue, post["row"], col_notes, "Invalid type")
                             failed += 1
 
-                        # If we are rate limited, wait and retry once (uses result.wait_seconds when available)
-                        if result and result.get("status") == "Rate Limited" and denied_try < denied_retries:
-                            try:
-                                wait_s = int(result.get("wait_seconds") or 120)
-                            except Exception:
-                                wait_s = 120
-                            # Add small buffer
-                            wait_s = max(30, wait_s + 10)
-                            logger.warning(f"Rate limited. Waiting {wait_s}s then retrying...")
-                            cooldown_wait(wait_s)
-                            continue
+                        if result and result.get("status") == "Rate Limited":
+                            sheets_mgr.update_cell(post_queue, post["row"], col_status, "Failed")
+                            sheets_mgr.update_cell(post_queue, post["row"], col_notes, "Rate limited")
+                            failed += 1
+                            progress.advance(task_id, 1)
+                            post_history.record_post(
+                                post_type=post.get("type", ""),
+                                title=post.get("title", ""),
+                                image_path=post.get("image_path", ""),
+                                post_url="",
+                                status="Failed",
+                                notes="Rate limited"
+                            )
+                            row_handled = True
+                            break
 
                         if result and result.get("status") == "Repeating":
                             sheets_mgr.update_cell(post_queue, post["row"], col_status, "Repeating")
                             sheets_mgr.update_cell(post_queue, post["row"], col_notes, "Image rejected: repeating/duplicate")
                             failed += 1
                             progress.advance(task_id, 1)
-                            break
-
-                        # Track consecutive denied to stop early if site is blocking uploads
-                        if result and (result.get("status") == "Denied"):
-                            consecutive_denied += 1
-                        else:
-                            if consecutive_denied > 0:
-                                consecutive_denied = 0
-
-                        if consecutive_denied >= max(1, int(Config.POST_MAX_CONSECUTIVE_DENIED)):
-                            logger.warning(
-                                f"Too many consecutive denied uploads ({consecutive_denied}). Stopping early to avoid bans."
+                            post_history.record_post(
+                                post_type=post.get("type", ""),
+                                title=post.get("title", ""),
+                                image_path=post.get("image_path", ""),
+                                post_url="",
+                                status="Repeating",
+                                notes="Image rejected: repeating/duplicate"
                             )
-                            stop_early = True
+                            row_handled = True
                             break
 
-                        if result and (result.get("status") == "Denied"):
-                            denied_url = (result.get("url") or "").strip()
+                        # Denied or error: mark Failed and skip (no retries)
+                        if result and result.get("status") in {"Denied", "Error"}:
+                            sheets_mgr.update_cell(post_queue, post["row"], col_status, "Failed")
+                            sheets_mgr.update_cell(post_queue, post["row"], col_notes, f"{result.get('status')}: {result.get('url','')}")
+                            failed += 1
+                            progress.advance(task_id, 1)
+                            post_history.record_post(
+                                post_type=post.get("type", ""),
+                                title=post.get("title", ""),
+                                image_path=post.get("image_path", ""),
+                                post_url=result.get("url", "") if result else "",
+                                status="Failed",
+                                notes=f"{result.get('status')}: {result.get('url','')}"
+                            )
+                            row_handled = True
+                            break
 
-                            # If we hit the explicit upload-denied/share URL, stop immediately.
-                            # This is a strong signal the site is blocking uploads and retries waste time and add risk.
-                            if PostCreator._is_denied_or_share_url(denied_url) and "upload-denied" in denied_url.lower():
-                                logger.error(
-                                    "Uploads are currently denied by the site (upload-denied). "
-                                    "Stopping Post Mode early to avoid repeated retries."
-                                )
-                                stop_reason = f"upload-denied ({denied_url})"
-                                stop_early = True
-                                break
-
-                            if PostCreator._is_denied_or_share_url(denied_url) and denied_try < denied_retries:
-                                base_wait = max(0, int(Config.POST_DENIED_BACKOFF_SECONDS))
-                                try:
-                                    mult = float(Config.POST_DENIED_BACKOFF_MULTIPLIER)
-                                    if mult < 1:
-                                        mult = 1
-                                except Exception:
-                                    mult = 1
-                                wait_s = int(base_wait * (mult ** denied_try))
-                                try:
-                                    wait_s = int(wait_s + random.uniform(0, float(Config.POST_DENIED_BACKOFF_JITTER_SECONDS)))
-                                except Exception:
-                                    pass
-                                if wait_s > 0:
-                                    logger.warning(
-                                        f"Denied (url={denied_url}). Backing off {wait_s}s then retrying..."
-                                    )
-                                    cooldown_wait(wait_s)
-                                continue
-                        break
+                    if row_handled:
+                        continue
 
                     if stop_early:
                         sheets_mgr.update_cell(post_queue, post["row"], col_status, "Failed")
@@ -3774,6 +3996,15 @@ def run_post_mode(args):
                         sheets_mgr.update_cell(post_queue, post["row"], col_notes, result["status"])
                         success += 1
 
+                        post_history.record_post(
+                            post_type=post.get("type", ""),
+                            title=post.get("title", ""),
+                            image_path=post.get("image_path", ""),
+                            post_url=result.get("url", ""),
+                            status=result.get("status", ""),
+                            notes=result.get("status", "")
+                        )
+
                         try:
                             activity.log(
                                 mode="post",
@@ -3798,6 +4029,15 @@ def run_post_mode(args):
                             )
                             failed += 1
 
+                            post_history.record_post(
+                                post_type=post.get("type", ""),
+                                title=post.get("title", ""),
+                                image_path=post.get("image_path", ""),
+                                post_url=result_url,
+                                status="Failed",
+                                notes=f"Verification failed: {result.get('status', '')}"
+                            )
+
                             try:
                                 activity.log(
                                     mode="post",
@@ -3816,6 +4056,15 @@ def run_post_mode(args):
                             sheets_mgr.update_cell(post_queue, post["row"], col_timestamp, timestamp)
                             sheets_mgr.update_cell(post_queue, post["row"], col_notes, result["status"])
                             success += 1
+
+                            post_history.record_post(
+                                post_type=post.get("type", ""),
+                                title=post.get("title", ""),
+                                image_path=post.get("image_path", ""),
+                                post_url=result.get("url", ""),
+                                status=result.get("status", ""),
+                                notes=result.get("status", "")
+                            )
 
                             consecutive_denied = 0
 
@@ -3840,6 +4089,15 @@ def run_post_mode(args):
                         )
                         failed += 1
 
+                        post_history.record_post(
+                            post_type=post.get("type", ""),
+                            title=post.get("title", ""),
+                            image_path=post.get("image_path", ""),
+                            post_url=result.get("url", "") if result else "",
+                            status="Failed",
+                            notes=f"{result.get('status', 'Error')}"
+                        )
+
                         try:
                             activity.log(
                                 mode="post",
@@ -3861,8 +4119,8 @@ def run_post_mode(args):
 
                     if idx < len(pending):
                         s = (result.get("status") if result else "") or ""
-                        if s not in {"Image Download Failed", "File Not Found"}:
-                            cooldown_wait(Config.POST_COOLDOWN_SECONDS)
+                        if s in {"Posted", "Dry Run"}:
+                            cooldown_wait(130)
 
                 except Exception as e:
                     logger.error(f"Error: {e}")
@@ -4096,7 +4354,7 @@ def main():
 
     parser.add_argument(
         "--mode",
-        choices=["msg", "populate", "post", "inbox", "logs"],
+        choices=["msg", "populate", "post", "inbox", "logs", "setup"],
         default=None,
         help="Operation mode"
     )
@@ -4175,8 +4433,9 @@ def main():
         console.print("  2) Post Mode")
         console.print("  3) Inbox")
         console.print("  4) Logs")
+        console.print("  5) Setup")
 
-        main_map = {"1": "msg", "2": "post_menu", "3": "inbox_menu", "4": "logs"}
+        main_map = {"1": "msg", "2": "post_menu", "3": "inbox_menu", "4": "logs", "5": "setup"}
         selected = _prompt_choice("Enter choice [1]: ", main_map, "1")
 
         if selected == "post_menu":
@@ -4218,6 +4477,8 @@ def main():
             args.mode = "inbox" if inbox_sel == "inbox" else "inbox"
         elif selected == "logs":
             args.mode = "logs"
+        elif selected == "setup":
+            args.mode = "setup"
         else:
             args.mode = "msg"
 
@@ -4250,6 +4511,8 @@ def main():
             run_inbox_mode(args)
         elif args.mode == "logs":
             run_logs_mode()
+        elif args.mode == "setup":
+            run_setup_mode()
     except KeyboardInterrupt:
         console.print("\n[yellow]Interrupted[/yellow]")
     except Exception as e:

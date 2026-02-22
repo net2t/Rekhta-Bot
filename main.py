@@ -25,6 +25,7 @@ import urllib.request
 import urllib.error
 import socket
 import logging
+import random
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -1516,6 +1517,27 @@ class PostCreator:
             return "".join(ch for ch in text if ord(ch) <= 0xFFFF)
         except Exception:
             return text
+
+    @staticmethod
+    def _parse_rate_limit_seconds(text: str) -> int:
+        t = (text or "").lower()
+        m = re.search(r"(\d+)\s*(?:min|mins|minute|minutes)", t)
+        if m:
+            try:
+                return max(30, int(m.group(1)) * 60)
+            except Exception:
+                return 120
+        return 120
+
+    def _detect_rate_limit(self) -> int:
+        try:
+            src = (self.driver.page_source or "")
+        except Exception:
+            src = ""
+        low = src.lower()
+        if "min baad" in low or "image share" in low or "2 min" in low:
+            return self._parse_rate_limit_seconds(low)
+        return 0
 
     def _find_share_form(self, require_file: bool) -> Optional[object]:
         forms = self.driver.find_elements(By.CSS_SELECTOR, "form")

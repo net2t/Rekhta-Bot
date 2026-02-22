@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DD-Msg-Bot · Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:        #f0f4ff;
+      --surface:   #ffffff;
+      --card:      #ffffff;
+      --border:    #dde4f8;
+      --border2:   #b8c6f0;
+
+      --blue:      #2563eb;
+      --blue-l:    #eff4ff;
+      --blue-d:    #1d4ed8;
+      --indigo:    #4f46e5;
+      --purple:    #7c3aed;
+      --pink:      #ec4899;
+      --rose:      #f43f5e;
+      --rose-l:    #fff1f2;
+      --green:     #059669;
+      --green-l:   #ecfdf5;
+      --amber:     #d97706;
+      --amber-l:   #fffbeb;
+      --orange:    #ea580c;
+      --orange-l:  #fff7ed;
+      --sky:       #0284c7;
+      --sky-l:     #f0f9ff;
+      --teal:      #0d9488;
+      --teal-l:    #f0fdfa;
+      --violet:    #7c3aed;
+
+      --text:      #1e293b;
+      --text2:     #475569;
+      --muted:     #94a3b8;
+      --mono:      'Share Tech Mono', monospace;
+      --ui:        'Rajdhani', sans-serif;
+      --radius:    10px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--ui);
+      min-height: 100vh;
+    }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      position: sticky; top: 0; z-index: 50;
+      background: linear-gradient(135deg, #1d4ed8 0%, #4f46e5 50%, #7c3aed 100%);
+      padding: 0 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 58px; gap: 16px;
+      box-shadow: 0 4px 20px rgba(79,70,229,.35);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+    .brand-icon {
+      width: 36px; height: 36px; border-radius: 8px;
+      background: rgba(255,255,255,.2); border: 1.5px solid rgba(255,255,255,.4);
+      display: grid; place-items: center;
+      font-family: var(--mono); font-size: 12px; font-weight: 700; color: #fff;
+      box-shadow: 0 0 14px rgba(255,255,255,.15);
+    }
+    .brand-name { font-size: 17px; font-weight: 700; letter-spacing: 2px; color: #fff; text-transform: uppercase; }
+    .brand-ver  { font-family: var(--mono); font-size: 10px; color: rgba(255,255,255,.6); letter-spacing: 1px; }
+
+    .topbar-center { flex: 1; max-width: 400px; }
+    .search-wrap { position: relative; }
+    .search-wrap input {
+      width: 100%;
+      background: rgba(255,255,255,.15);
+      border: 1.5px solid rgba(255,255,255,.3);
+      border-radius: 8px; padding: 8px 14px 8px 36px;
+      font-family: var(--mono); font-size: 12px; color: #fff; outline: none; transition: all .2s;
+    }
+    .search-wrap input::placeholder { color: rgba(255,255,255,.5); }
+    .search-wrap input:focus { border-color: rgba(255,255,255,.7); background: rgba(255,255,255,.22); }
+    .search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,.6); font-size: 14px; pointer-events: none; }
+
+    .topbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+    .live-pill {
+      display: flex; align-items: center; gap: 6px;
+      font-family: var(--mono); font-size: 10px; color: #fff;
+      background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25);
+      border-radius: 20px; padding: 5px 12px; letter-spacing: 1px;
+    }
+    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 8px #4ade80; animation: blink 1.4s step-start infinite; }
+    @keyframes blink { 50% { opacity: 0.2; } }
+
+    .btn {
+      font-family: var(--ui); font-size: 13px; font-weight: 600; letter-spacing: .5px;
+      padding: 7px 16px; border-radius: 8px; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px;
+      transition: all .18s; border: none; text-decoration: none;
+    }
+    .btn-white    { background: #fff; color: var(--blue); }
+    .btn-white:hover { background: #e8efff; }
+    .btn-ghost-w  { background: transparent; border: 1.5px solid rgba(255,255,255,.35); color: #fff; }
+    .btn-ghost-w:hover { background: rgba(255,255,255,.15); }
+    .btn-sm { padding: 5px 13px; font-size: 12px; }
+
+    /* ── NAV TABS ── */
+    .nav-tabs {
+      background: var(--surface); border-bottom: 2px solid var(--border);
+      padding: 0 24px; display: flex; gap: 0; overflow-x: auto;
+      box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    }
+    .nav-tab {
+      padding: 13px 20px; font-weight: 700; font-size: 13px; letter-spacing: .3px;
+      color: var(--muted); cursor: pointer; border: none; background: none;
+      border-bottom: 3px solid transparent; margin-bottom: -2px;
+      transition: all .15s; display: flex; align-items: center; gap: 7px;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .nav-tab:hover { color: var(--blue); }
+    .nav-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+    .tab-badge {
+      font-family: var(--mono); font-size: 10px; font-weight: 700;
+      padding: 2px 8px; border-radius: 20px;
+      background: var(--blue-l); color: var(--blue);
+    }
+    .nav-tab.active .tab-badge { background: var(--blue); color: #fff; }
+
+    /* ── STATS ROW ── */
+    .stats-row {
+      display: grid; grid-template-columns: repeat(5, 1fr);
+      border-bottom: 2px solid var(--border);
+    }
+    .stat {
+      background: var(--surface); padding: 20px 22px;
+      border-right: 1px solid var(--border);
+      position: relative; transition: background .15s;
+    }
+    .stat:last-child { border-right: none; }
+    .stat:hover { background: #fafbff; }
+    .stat-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .stat-label { font-family: var(--mono); font-size: 10px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
+    .stat-icon { font-size: 18px; }
+    .stat-val { font-size: 30px; font-weight: 700; line-height: 1; letter-spacing: -1px; }
+    .stat-sub { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 5px; }
+
+    /* ── SECTION HEADER ── */
+    .section-header {
+      background: var(--surface); padding: 14px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 10px;
+      box-shadow: 0 1px 0 var(--border);
+    }
+    .section-title { font-size: 15px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 8px; }
+    .section-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    .btn-run {
+      font-family: var(--ui); font-size: 12px; font-weight: 700; letter-spacing: .5px;
+      padding: 6px 16px; border-radius: 8px; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px; transition: all .18s; border: none;
+    }
+    .btn-run-msg    { background: var(--blue-l);   color: var(--blue);   border: 1.5px solid #bfdbfe; }
+    .btn-run-msg:hover    { background: var(--blue);   color: #fff; }
+    .btn-run-post   { background: var(--teal-l);   color: var(--teal);   border: 1.5px solid #99f6e4; }
+    .btn-run-post:hover   { background: var(--teal);   color: #fff; }
+    .btn-run-inbox  { background: var(--amber-l);  color: var(--amber);  border: 1.5px solid #fde68a; }
+    .btn-run-inbox:hover  { background: var(--amber);  color: #fff; }
+    .btn-run-refresh{ background: #f1f5f9; color: var(--text2); border: 1.5px solid var(--border2); }
+    .btn-run-refresh:hover{ background: var(--border2); color: var(--text); }
+
+    /* ── FILTERS ── */
+    .filters {
+      background: var(--surface); padding: 10px 24px;
+      display: flex; align-items: center; gap: 8px;
+      border-bottom: 1px solid var(--border); flex-wrap: wrap;
+    }
+    .filter-label { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 1px; flex-shrink: 0; }
+    .filter-btn {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+      padding: 5px 13px; border-radius: 20px; cursor: pointer; transition: all .15s;
+      border: 1.5px solid var(--border2); background: transparent; color: var(--text2);
+      flex-shrink: 0;
+    }
+    .filter-btn:hover               { border-color: var(--blue);  color: var(--blue);  background: var(--blue-l); }
+    .filter-btn.active              { background: var(--blue);  color: #fff; border-color: var(--blue); }
+    .filter-btn.f-done.active       { background: var(--green); color: #fff; border-color: var(--green); }
+    .filter-btn.f-failed.active     { background: var(--rose);  color: #fff; border-color: var(--rose); }
+    .filter-btn.f-sent.active       { background: var(--teal);  color: #fff; border-color: var(--teal); }
+    .filter-btn.f-skipped.active    { background: var(--muted); color: #fff; border-color: var(--muted); }
+    .filter-btn.f-repeating.active  { background: var(--orange);color: #fff; border-color: var(--orange); }
+    .sort-select {
+      font-family: var(--mono); font-size: 10px; letter-spacing: .5px;
+      background: var(--surface); border: 1.5px solid var(--border2); color: var(--text2);
+      border-radius: 8px; padding: 5px 10px; cursor: pointer; outline: none; margin-left: auto;
+    }
+    .sort-select:focus { border-color: var(--blue); }
+
+    /* ── PAGES ── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── HOME GRID ── */
+    #card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 16px; padding: 20px 24px;
+    }
+
+    .profile-card {
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px; cursor: pointer;
+      transition: all .18s;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+      position: relative; overflow: hidden;
+    }
+    .profile-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: var(--card-stripe, transparent);
+    }
+    .profile-card:hover {
+      border-color: var(--blue);
+      box-shadow: 0 6px 20px rgba(37,99,235,.14);
+      transform: translateY(-2px);
+    }
+
+    .card-top { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 13px; }
+    .avatar-ph {
+      width: 46px; height: 46px; border-radius: 10px; flex-shrink: 0;
+      display: grid; place-items: center; font-family: var(--mono); font-size: 16px; font-weight: 700;
+      color: #fff;
+    }
+    .card-info { flex: 1; min-width: 0; }
+    .card-nick { font-size: 15px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-city { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 1px; margin-top: 2px; }
+
+    .card-badge {
+      font-family: var(--mono); font-size: 9px; letter-spacing: 1px;
+      padding: 3px 8px; border-radius: 20px; text-transform: uppercase; flex-shrink: 0; font-weight: 700;
+    }
+    .badge-pending  { background: var(--amber-l);  color: var(--amber); border: 1px solid #fde68a; }
+    .badge-done     { background: var(--green-l);  color: var(--green); border: 1px solid #6ee7b7; }
+    .badge-failed   { background: var(--rose-l);   color: var(--rose);  border: 1px solid #fecdd3; }
+    .badge-sent     { background: var(--sky-l);    color: var(--sky);   border: 1px solid #bae6fd; }
+    .badge-skipped  { background: #f1f5f9; color: var(--muted); border: 1px solid var(--border2); }
+    .badge-repeating{ background: var(--orange-l); color: var(--orange);border: 1px solid #fed7aa; }
+    .badge-default  { background: #f1f5f9; color: var(--text2); border: 1px solid var(--border2); }
+
+    .card-divider { height: 1px; background: var(--border); margin: 11px 0; }
+
+    .card-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+    .cs { text-align: center; padding: 7px 4px; background: var(--bg); border-radius: 7px; }
+    .cs-val { font-size: 14px; font-weight: 700; color: var(--text); }
+    .cs-key { font-family: var(--mono); font-size: 9px; color: var(--muted); letter-spacing: .5px; margin-top: 2px; }
+
+    .card-footer {
+      margin-top: 11px; padding-top: 11px; border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .card-ts { font-family: var(--mono); font-size: 9px; color: var(--muted); }
+    .card-mode {
+      font-family: var(--mono); font-size: 9px; letter-spacing: 1px;
+      padding: 2px 8px; border-radius: 4px; text-transform: uppercase; font-weight: 700;
+    }
+    .mode-msg    { background: var(--blue-l);  color: var(--blue);  border: 1px solid #bfdbfe; }
+    .mode-post   { background: var(--teal-l);  color: var(--teal);  border: 1px solid #99f6e4; }
+    .mode-inbox  { background: var(--amber-l); color: var(--amber); border: 1px solid #fde68a; }
+
+    /* ── TABLE VIEW ── */
+    .table-container { padding: 16px 24px; }
+    .table-wrap {
+      overflow-x: auto; border-radius: var(--radius);
+      border: 1.5px solid var(--border); background: var(--surface);
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 500px; }
+    thead { background: linear-gradient(135deg, #eff4ff 0%, #f0fdfa 100%); }
+    th {
+      padding: 11px 14px; text-align: left;
+      font-family: var(--mono); font-size: 10px; font-weight: 700;
+      color: var(--text2); letter-spacing: 1px; text-transform: uppercase;
+      border-bottom: 2px solid var(--border); white-space: nowrap;
+    }
+    td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafbff; }
+
+    /* ── LOADING / ERROR / EMPTY ── */
+    #loading-state { padding: 80px 24px; text-align: center; }
+    .spinner {
+      width: 44px; height: 44px; border-radius: 50%;
+      border: 3px solid var(--border2); border-top-color: var(--blue);
+      animation: spin .75s linear infinite; margin: 0 auto 18px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: 2px; }
+
+    #error-state  { padding: 60px 24px; text-align: center; display: none; }
+    .error-box { background: var(--rose-l); border: 1.5px solid #fecdd3; border-radius: var(--radius); padding: 28px 32px; max-width: 520px; margin: 0 auto; }
+    .error-title { font-size: 17px; font-weight: 700; color: var(--rose); margin-bottom: 10px; }
+    .error-msg { font-family: var(--mono); font-size: 11px; color: var(--text2); white-space: pre-wrap; line-height: 1.8; margin-bottom: 16px; }
+
+    #empty-state  { padding: 60px 24px; text-align: center; display: none; }
+    .empty-icon  { font-size: 36px; margin-bottom: 10px; }
+    .empty-text  { font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: 1px; }
+
+    /* ── DETAIL DRAWER ── */
+    .drawer-overlay {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(30,41,59,.45); backdrop-filter: blur(4px);
+      display: none; align-items: flex-start; justify-content: flex-end;
+    }
+    .drawer-overlay.open { display: flex; }
+    .drawer {
+      width: 420px; max-width: 100vw; height: 100vh;
+      background: var(--surface); border-left: 1.5px solid var(--border);
+      overflow-y: auto; box-shadow: -8px 0 32px rgba(37,99,235,.12);
+      animation: slide-in .22s ease;
+    }
+    @keyframes slide-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    .drawer-header {
+      padding: 18px 20px; border-bottom: 1.5px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; background: var(--surface); z-index: 1;
+      background: linear-gradient(135deg, #eff4ff 0%, #f0fdfa 100%);
+    }
+    .drawer-nick { font-size: 20px; font-weight: 700; color: var(--text); }
+    .drawer-close {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: transparent; border: 1.5px solid var(--border2);
+      color: var(--text2); cursor: pointer; display: grid; place-items: center;
+      font-size: 15px; transition: all .15s;
+    }
+    .drawer-close:hover { border-color: var(--rose); color: var(--rose); background: var(--rose-l); }
+    .drawer-hero {
+      padding: 20px; display: flex; align-items: center; gap: 16px;
+      background: var(--bg); border-bottom: 1px solid var(--border);
+    }
+    .drawer-section { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+    .drawer-section-title {
+      font-family: var(--mono); font-size: 9px; letter-spacing: 3px; color: var(--muted);
+      text-transform: uppercase; margin-bottom: 12px;
+      padding-bottom: 6px; border-bottom: 1px solid var(--border);
+    }
+    .drawer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .df-key { font-family: var(--mono); font-size: 9px; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 3px; }
+    .df-val { font-size: 13px; font-weight: 600; color: var(--text); word-break: break-all; }
+    .df-val a { color: var(--blue); text-decoration: none; }
+    .df-val a:hover { text-decoration: underline; }
+    .df-full { grid-column: 1/-1; }
+    .drawer-actions {
+      padding: 16px 20px; display: flex; gap: 10px;
+      position: sticky; bottom: 0; background: var(--surface);
+      border-top: 1.5px solid var(--border);
+    }
+
+    /* ── FOOTER ── */
+    .table-footer {
+      padding: 12px 24px; border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      font-family: var(--mono); font-size: 11px; color: var(--muted);
+      background: var(--surface);
+    }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed; bottom: 24px; right: 24px;
+      border-radius: 10px; padding: 12px 18px;
+      font-family: var(--ui); font-size: 13px; font-weight: 600;
+      z-index: 9999; transform: translateY(80px); opacity: 0; transition: all .3s;
+      max-width: 320px; display: flex; align-items: center; gap: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.15);
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+    #toast.ok   { background: var(--green); color: #fff; }
+    #toast.err  { background: var(--rose);  color: #fff; }
+    #toast.info { background: var(--blue);  color: #fff; }
+
+    /* ── SUB TABS ── */
+    .sub-tabs {
+      background: var(--bg); padding: 0 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex; gap: 0;
+    }
+    .sub-tab {
+      padding: 10px 18px; font-size: 12px; font-weight: 700; letter-spacing: .3px;
+      color: var(--muted); cursor: pointer; border: none; background: none;
+      border-bottom: 2px solid transparent; margin-bottom: -1px;
+      transition: all .15s; white-space: nowrap;
+    }
+    .sub-tab:hover { color: var(--blue); }
+    .sub-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+
+    /* ── RUN PANEL ── */
+    .run-panel {
+      background: linear-gradient(135deg, #eff4ff 0%, #f0fdfa 100%);
+      border-bottom: 2px solid var(--border);
+      padding: 16px 24px;
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    }
+    .run-label { font-family: var(--mono); font-size: 10px; letter-spacing: 2px; color: var(--text2); text-transform: uppercase; font-weight: 700; flex-shrink: 0; }
+    .run-divider { width: 1px; height: 28px; background: var(--border2); flex-shrink: 0; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .stats-row { grid-template-columns: repeat(3, 1fr); }
+      .stat:nth-child(4), .stat:nth-child(5) { border-top: 1px solid var(--border); }
+      .topbar-center { display: none; }
+      #card-grid { grid-template-columns: 1fr 1fr; padding: 12px; gap: 10px; }
+    }
+    @media (max-width: 480px) {
+      #card-grid { grid-template-columns: 1fr; }
+      .stats-row { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── TOP BAR ── -->
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-icon">DD</div>
+    <div>
+      <div class="brand-name">DD-Msg-Bot</div>
+      <div class="brand-ver">LIVE DASHBOARD</div>
+    </div>
+  </div>
+  <div class="topbar-center">
+    <div class="search-wrap">
+      <span class="search-icon">⌕</span>
+      <input type="text" id="search-input" placeholder="Search nick, city, message…">
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="live-pill"><div class="live-dot"></div> LIVE</div>
+    <a href="https://github.com/net2t/DD-Msg-Bot" target="_blank" class="btn btn-ghost-w btn-sm">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+      GitHub
+    </a>
+    <button class="btn btn-white btn-sm" onclick="refreshAll()">↺ Refresh</button>
+  </div>
+</div>
+
+<!-- ── RUN PANEL ── -->
+<div class="run-panel">
+  <span class="run-label">▶ Manual Run</span>
+  <div class="run-divider"></div>
+  <button class="btn-run btn-run-msg"   onclick="confirmRun('msg')">💬 Run MSG Mode</button>
+  <button class="btn-run btn-run-post"  onclick="confirmRun('post')">📤 Run POST Mode</button>
+  <button class="btn-run btn-run-inbox" onclick="confirmRun('inbox')">📥 Run INBOX Mode</button>
+  <div class="run-divider"></div>
+  <span id="run-status" style="font-family:var(--mono);font-size:11px;color:var(--muted)">Ready</span>
+</div>
+
+<!-- ── NAV TABS ── -->
+<div class="nav-tabs">
+  <button class="nav-tab active" onclick="switchTab('msglist')">💬 MsgList <span class="tab-badge" id="badge-msglist">—</span></button>
+  <button class="nav-tab" onclick="switchTab('postqueue')">📤 PostQueue <span class="tab-badge" id="badge-postqueue">—</span></button>
+  <button class="nav-tab" onclick="switchTab('inbox')">📥 Inbox <span class="tab-badge" id="badge-inbox">—</span></button>
+  <button class="nav-tab" onclick="switchTab('history')">📜 History <span class="tab-badge" id="badge-history">—</span></button>
+  <button class="nav-tab" onclick="switchTab('logs')">📊 Logs <span class="tab-badge" id="badge-logs">—</span></button>
+</div>
+
+<!-- ── STATS ROW ── -->
+<div class="stats-row">
+  <div class="stat">
+    <div class="stat-top"><span class="stat-label">MSG Targets</span><span class="stat-icon">💬</span></div>
+    <div class="stat-val" id="s-msg-total" style="color:var(--blue)">—</div>
+    <div class="stat-sub" id="s-msg-pending">from MsgList</div>
+  </div>
+  <div class="stat">
+    <div class="stat-top"><span class="stat-label">Post Queue</span><span class="stat-icon">📤</span></div>
+    <div class="stat-val" id="s-post-total" style="color:var(--teal)">—</div>
+    <div class="stat-sub" id="s-post-pending">from PostQueue</div>
+  </div>
+  <div class="stat">
+    <div class="stat-top"><span class="stat-label">Msgs Sent</span><span class="stat-icon">✅</span></div>
+    <div class="stat-val" id="s-sent" style="color:var(--green)">—</div>
+    <div class="stat-sub">from MsgHistory</div>
+  </div>
+  <div class="stat">
+    <div class="stat-top"><span class="stat-label">Inbox Pending</span><span class="stat-icon">📥</span></div>
+    <div class="stat-val" id="s-inbox-pending" style="color:var(--amber)">—</div>
+    <div class="stat-sub">awaiting reply</div>
+  </div>
+  <div class="stat">
+    <div class="stat-top"><span class="stat-label">Last Refresh</span><span class="stat-icon">🕐</span></div>
+    <div class="stat-val" id="s-last-time" style="font-size:16px; padding-top:6px">—</div>
+    <div class="stat-sub" id="s-last-date"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<!--  PAGE: MSGLIST                           -->
+<!-- ════════════════════════════════════════ -->
+<div id="page-msglist" class="page active">
+  <div class="section-header">
+    <div class="section-title">💬 MsgList <span style="font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:400">— Message Targets</span></div>
+    <div class="section-actions">
+      <button class="btn-run btn-run-refresh" onclick="reloadTab('MsgList','msglist')">↺ Reload</button>
+      <span id="status-msglist" style="font-family:var(--mono);font-size:11px;color:var(--muted)"></span>
+    </div>
+  </div>
+  <div class="filters">
+    <span class="filter-label">STATUS:</span>
+    <button class="filter-btn active"        data-sheet="MsgList" data-filter="all">All</button>
+    <button class="filter-btn"               data-sheet="MsgList" data-filter="pending">Pending</button>
+    <button class="filter-btn f-done"        data-sheet="MsgList" data-filter="done">Done</button>
+    <button class="filter-btn f-failed"      data-sheet="MsgList" data-filter="failed">Failed</button>
+    <button class="filter-btn f-skipped"     data-sheet="MsgList" data-filter="skipped">Skipped</button>
+    <select class="sort-select" onchange="applySortFilter('MsgList',this.value)">
+      <option value="">Sort: Sheet Order</option>
+      <option value="name_asc">Name A→Z</option>
+      <option value="city_asc">City A→Z</option>
+      <option value="status_asc">Status</option>
+    </select>
+  </div>
+  <div id="loading-state-msglist" style="padding:50px;text-align:center;display:none"><div class="spinner" style="margin:0 auto 12px"></div><div class="loading-text">LOADING MSGLIST…</div></div>
+  <div id="empty-state-msglist" class="empty-state" style="padding:50px;text-align:center;display:none"><div class="empty-icon">💬</div><div class="empty-text">NO ROWS MATCH THIS FILTER</div></div>
+  <div id="grid-msglist"></div>
+  <div class="table-footer" id="footer-msglist" style="display:none">
+    <span id="fc-msglist"></span><span id="fu-msglist"></span>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<!--  PAGE: POSTQUEUE                         -->
+<!-- ════════════════════════════════════════ -->
+<div id="page-postqueue" class="page">
+  <div class="section-header">
+    <div class="section-title">📤 PostQueue <span style="font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:400">— Scheduled Posts</span></div>
+    <div class="section-actions">
+      <button class="btn-run btn-run-refresh" onclick="reloadTab('PostQueue','postqueue')">↺ Reload</button>
+      <span id="status-postqueue" style="font-family:var(--mono);font-size:11px;color:var(--muted)"></span>
+    </div>
+  </div>
+  <div class="filters">
+    <span class="filter-label">STATUS:</span>
+    <button class="filter-btn active"     data-sheet="PostQueue" data-filter="all">All</button>
+    <button class="filter-btn"            data-sheet="PostQueue" data-filter="pending">Pending</button>
+    <button class="filter-btn f-done"     data-sheet="PostQueue" data-filter="done">Done</button>
+    <button class="filter-btn f-failed"   data-sheet="PostQueue" data-filter="failed">Failed</button>
+    <button class="filter-btn f-repeating" data-sheet="PostQueue" data-filter="repeating">Repeating</button>
+    <select class="sort-select" style="max-width:130px" onchange="filterByColValue('postqueue-table','TYPE',this.value)">
+      <option value="">All Types</option>
+      <option value="image">Image</option>
+      <option value="text">Text</option>
+    </select>
+  </div>
+  <div id="loading-state-postqueue" style="padding:50px;text-align:center;display:none"><div class="spinner" style="margin:0 auto 12px"></div><div class="loading-text">LOADING POSTQUEUE…</div></div>
+  <div class="table-container">
+    <div class="table-wrap">
+      <table id="postqueue-table"><thead></thead><tbody><tr><td style="padding:40px;text-align:center;color:var(--muted)">Loading PostQueue…</td></tr></tbody></table>
+    </div>
+  </div>
+  <div class="table-footer" id="footer-postqueue" style="display:none">
+    <span id="fc-postqueue"></span><span id="fu-postqueue"></span>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<!--  PAGE: INBOX                             -->
+<!-- ════════════════════════════════════════ -->
+<div id="page-inbox" class="page">
+  <div class="section-header">
+    <div class="section-title">📥 Inbox &amp; Activity</div>
+    <div class="section-actions">
+      <button class="btn-run btn-run-refresh" onclick="reloadTab('Inbox','inbox');reloadTab('Logs','logs');reloadTab('ConversationLog','convlog')">↺ Reload All</button>
+      <span id="status-inbox" style="font-family:var(--mono);font-size:11px;color:var(--muted)"></span>
+    </div>
+  </div>
+  <div class="sub-tabs">
+    <button class="sub-tab active" id="st-inbox-btn"   onclick="showSubTab('inbox')">📨 Conversations</button>
+    <button class="sub-tab"        id="st-logs-btn"    onclick="showSubTab('logs')">📊 Activity Log</button>
+    <button class="sub-tab"        id="st-convlog-btn" onclick="showSubTab('convlog')">💬 Conv Log</button>
+  </div>
+
+  <div id="subtab-inbox">
+    <div class="filters">
+      <span class="filter-label">STATUS:</span>
+      <button class="filter-btn active" data-sheet="Inbox" data-filter="all">All</button>
+      <button class="filter-btn"        data-sheet="Inbox" data-filter="pending">Pending</button>
+      <button class="filter-btn f-sent" data-sheet="Inbox" data-filter="sent">Sent</button>
+      <button class="filter-btn f-done" data-sheet="Inbox" data-filter="done">Done</button>
+    </div>
+    <div class="table-container">
+      <div class="table-wrap">
+        <table id="inbox-table"><thead></thead><tbody><tr><td style="padding:40px;text-align:center;color:var(--muted)">Loading Inbox…</td></tr></tbody></table>
+      </div>
+    </div>
+    <div class="table-footer" id="footer-inbox" style="display:none"><span id="fc-inbox"></span><span id="fu-inbox"></span></div>
+  </div>
+
+  <div id="subtab-logs" style="display:none">
+    <div class="table-container">
+      <div class="table-wrap">
+        <table id="logs-table"><thead></thead><tbody><tr><td style="padding:40px;text-align:center;color:var(--muted)">Loading Logs…</td></tr></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <div id="subtab-convlog" style="display:none">
+    <div class="table-container">
+      <div class="table-wrap">
+        <table id="convlog-table"><thead></thead><tbody><tr><td style="padding:40px;text-align:center;color:var(--muted)">Loading Conv Log…</td></tr></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<!--  PAGE: HISTORY                           -->
+<!-- ════════════════════════════════════════ -->
+<div id="page-history" class="page">
+  <div class="section-header">
+    <div class="section-title">📜 Message History <span style="font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:400">— Read Only</span></div>
+    <div class="section-actions">
+      <button class="btn-run btn-run-refresh" onclick="reloadTab('MsgHistory','history')">↺ Reload</button>
+      <span id="status-history" style="font-family:var(--mono);font-size:11px;color:var(--muted)"></span>
+    </div>
+  </div>
+  <div class="filters">
+    <span class="filter-label">STATUS:</span>
+    <button class="filter-btn active"  data-sheet="MsgHistory" data-filter="all">All</button>
+    <button class="filter-btn f-done"  data-sheet="MsgHistory" data-filter="posted">Posted</button>
+    <button class="filter-btn f-done"  data-sheet="MsgHistory" data-filter="sent">Sent</button>
+    <button class="filter-btn f-failed" data-sheet="MsgHistory" data-filter="failed">Failed</button>
+  </div>
+  <div class="table-container">
+    <div class="table-wrap">
+      <table id="history-table"><thead></thead><tbody><tr><td style="padding:40px;text-align:center;color:var(--muted)">Loading History…</td></tr></tbody></table>
+    </div>
+  </div>
+  <div class="table-footer" id="footer-history" style="display:none"><span id="fc-history"></span><span id="fu-history"></span></div>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<!--  PAGE: LOGS                              -->
+<!-- ════════════════════════════════════════ -->
+<div id="page-logs" class="page">
+  <div class="section-header">
+    <div class="section-title">📊 Activity Logs</div>
+    <div class="section-actions">
+      <button class="btn-run btn-run-refresh" onclick="reloadTab('Logs','logs');reloadTab('ConversationLog','convlog')">↺ Reload</button>
+    </div>
+  </div>
+  <div class="table-container">
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--text2);text-transform:uppercase;margin-bottom:10px;font-weight:700">📊 Activity Log</div>
+    <div class="table-wrap" style="margin-bottom:24px">
+      <table id="actlogs-table"><thead></thead><tbody><tr><td style="padding:30px;text-align:center;color:var(--muted)">Loading…</td></tr></tbody></table>
+    </div>
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--text2);text-transform:uppercase;margin-bottom:10px;font-weight:700">💬 Conversation Log</div>
+    <div class="table-wrap">
+      <table id="convlogs-table"><thead></thead><tbody><tr><td style="padding:30px;text-align:center;color:var(--muted)">Loading…</td></tr></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- ── DETAIL DRAWER ── -->
+<div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer(event)">
+  <div class="drawer" id="drawer">
+    <div class="drawer-header">
+      <div class="drawer-nick" id="d-nick">—</div>
+      <button class="drawer-close" onclick="closeDrawerDirect()">✕</button>
+    </div>
+    <div class="drawer-hero" id="d-hero"></div>
+    <div class="drawer-section" id="d-details">
+      <div class="drawer-section-title">Details</div>
+      <div class="drawer-grid" id="d-grid"></div>
+    </div>
+    <div class="drawer-actions" id="d-actions"></div>
+  </div>
+</div>
+
+<!-- ── TOAST ── -->
+<div id="toast"></div>
+
+<!-- ── RUN CONFIRM MODAL ── -->
+<div id="run-modal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(30,41,59,.5);backdrop-filter:blur(4px);align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:14px;padding:28px 32px;max-width:380px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+    <div style="font-size:17px;font-weight:700;color:var(--text);margin-bottom:8px" id="modal-title">Run Script</div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text2);margin-bottom:20px;line-height:1.7" id="modal-body">This will run the script in a new terminal window.<br>Make sure your .env is configured.</div>
+    <div style="display:flex;gap:10px">
+      <button id="modal-confirm" class="btn" style="flex:1;justify-content:center;font-family:var(--ui);font-size:13px;font-weight:700;padding:9px 0;border-radius:8px;cursor:pointer;border:none">▶ Run Now</button>
+      <button onclick="closeModal()" class="btn-run btn-run-refresh" style="flex:1;justify-content:center;font-size:13px">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+//  CONFIG
+// ─────────────────────────────────────────────────────────────
+const SHEET_ID = '1R4UDRy0aHlQ1zkj-0lwkKmS6aMSgkBn40oCQS7FksnQ';
+
+const SHEET_TABS = {
+  MsgList:         ['MsgList'],
+  PostQueue:       ['PostQueue'],
+  Inbox:           ['Inbox', 'InboxQueue', 'Inbox & Activity'],
+  MsgHistory:      ['MsgHistory'],
+  Logs:            ['Logs'],
+  ConversationLog: ['ConversationLog'],
+};
+
+// ─────────────────────────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────────────────────────
+const DATA    = {};
+const FILTERS = { MsgList:'', PostQueue:'', Inbox:'', MsgHistory:'' };
+let currentTab = 'msglist';
+let searchQ    = '';
+
+// ─────────────────────────────────────────────────────────────
+//  FETCH gviz (no API key, public sheet)
+// ─────────────────────────────────────────────────────────────
+async function fetchSheet(tabName) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}`;
+  const res  = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const text = await res.text();
+  const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
+  if (json.status === 'error') throw new Error(json.errors?.[0]?.detailed_message || 'Sheet API error');
+  return json;
+}
+
+async function loadSheet(logicalName) {
+  const tabs = SHEET_TABS[logicalName] || [logicalName];
+  let lastErr;
+  for (const tab of tabs) {
+    try {
+      const json  = await fetchSheet(tab);
+      const tRows = json.table?.rows || [];
+      if (!tRows.length) { DATA[logicalName] = { headers:[], rows:[] }; return; }
+      const headers = (tRows[0].c||[]).map(c => c ? String(c.v||c.f||'') : '');
+      const rows    = tRows.slice(1)
+        .map(r => (r.c||[]).map(c => c ? String(c.v??c.f??'') : ''))
+        .filter(r => r.some(v => v.trim()));
+      DATA[logicalName] = { headers, rows };
+      return;
+    } catch(e) { lastErr = e; }
+  }
+  throw lastErr;
+}
+
+// ─────────────────────────────────────────────────────────────
+//  AVATAR COLORS  (deterministic from nick)
+// ─────────────────────────────────────────────────────────────
+const AVATAR_PALETTES = [
+  ['#2563eb','#eff4ff'], ['#7c3aed','#f5f3ff'], ['#0d9488','#f0fdfa'],
+  ['#d97706','#fffbeb'], ['#ec4899','#fdf2f8'], ['#059669','#ecfdf5'],
+  ['#ea580c','#fff7ed'], ['#0284c7','#f0f9ff'],
+];
+function avatarPalette(nick) {
+  let h = 0;
+  for (let i = 0; i < (nick||'').length; i++) h = (h * 31 + nick.charCodeAt(i)) & 0xFFFFFF;
+  return AVATAR_PALETTES[Math.abs(h) % AVATAR_PALETTES.length];
+}
+
+// ─────────────────────────────────────────────────────────────
+//  STATUS BADGE
+// ─────────────────────────────────────────────────────────────
+const STATUS_MAP = {
+  pending:'badge-pending', done:'badge-done', failed:'badge-failed',
+  sent:'badge-sent', skipped:'badge-skipped', repeating:'badge-repeating',
+  posted:'badge-done',
+};
+function statusBadge(val) {
+  const v = (val||'').toLowerCase();
+  const cls = STATUS_MAP[v] || 'badge-default';
+  return val ? `<span class="card-badge ${cls}">${esc(val)}</span>` : '';
+}
+
+// ─────────────────────────────────────────────────────────────
+//  RENDER CARDS (MsgList only — DD-CMS style)
+// ─────────────────────────────────────────────────────────────
+function renderCards(logicalName, filterVal) {
+  const container = document.getElementById('grid-msglist');
+  if (!container) return;
+  const d = DATA[logicalName];
+  if (!d) return;
+  const { headers, rows } = d;
+
+  // col indices
+  const ci = (name) => headers.findIndex(h => h.toUpperCase() === name.toUpperCase());
+  const C = {
+    NICK:     ci('NICK'),    NAME:  ci('NAME'),   CITY:  ci('CITY'),
+    STATUS:   ci('STATUS'),  MSG:   ci('MESSAGE'), PHONE: ci('PHONE'),
+    MODE:     ci('MODE'),    TS:    ci('TIMESTAMP'), RESULT: ci('RESULT_URL'),
+  };
+
+  const fv = (filterVal||'').toLowerCase();
+  let visible = fv && fv !== 'all'
+    ? rows.filter(r => (r[C.STATUS]||'').toLowerCase().includes(fv))
+    : rows;
+  if (searchQ) visible = visible.filter(r => r.join(' ').toLowerCase().includes(searchQ));
+
+  const emptyEl = document.getElementById('empty-state-msglist');
+  if (!visible.length) { container.innerHTML=''; if(emptyEl) emptyEl.style.display=''; return; }
+  if (emptyEl) emptyEl.style.display='none';
+
+  const stripes = {
+    pending:'linear-gradient(90deg,#3b82f6,#818cf8)',
+    done:'linear-gradient(90deg,#10b981,#34d399)',
+    failed:'linear-gradient(90deg,#f43f5e,#fb7185)',
+    sent:'linear-gradient(90deg,#0284c7,#38bdf8)',
+    skipped:'linear-gradient(90deg,#94a3b8,#cbd5e1)',
+  };
+
+  container.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  visible.forEach(row => {
+    const nick    = row[C.NICK]   || row[C.NAME]   || '?';
+    const city    = row[C.CITY]   || '';
+    const status  = row[C.STATUS] || '';
+    const msg     = row[C.MSG]    || '';
+    const mode    = row[C.MODE]   || '';
+    const ts      = row[C.TS]     || '';
+    const result  = row[C.RESULT] || '';
+
+    const [fg, bg] = avatarPalette(nick);
+    const stripe   = stripes[(status||'').toLowerCase()] || 'linear-gradient(90deg,#94a3b8,#cbd5e1)';
+    const modeHtml = mode ? `<span class="card-mode mode-${mode.toLowerCase()}">${esc(mode)}</span>` : '';
+    const tsShort  = ts.split(' ').slice(0,2).join(' ');
+
+    const div = document.createElement('div');
+    div.className = 'profile-card';
+    div.style.setProperty('--card-stripe', stripe);
+    div.innerHTML = `
+      <div class="card-top">
+        <div class="avatar-ph" style="background:${fg}">${esc(nick[0]?.toUpperCase()||'?')}</div>
+        <div class="card-info">
+          <div class="card-nick">${esc(nick)}</div>
+          <div class="card-city">${esc(city)||'&nbsp;'}</div>
+        </div>
+        ${statusBadge(status)}
+      </div>
+      ${msg ? `<div style="font-family:var(--mono);font-size:10px;color:var(--text2);background:var(--bg);border-radius:6px;padding:7px 10px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(msg)}">${esc(msg)}</div>` : ''}
+      <div class="card-footer">
+        <div class="card-ts">${esc(tsShort)}</div>
+        ${modeHtml}
+        ${result ? `<a href="${esc(result)}" target="_blank" style="font-family:var(--mono);font-size:9px;color:var(--blue);text-decoration:none;letter-spacing:.5px" onclick="event.stopPropagation()">RESULT ↗</a>` : ''}
+      </div>`;
+    div.addEventListener('click', () => openDrawer(headers, row));
+    frag.appendChild(div);
+  });
+  container.appendChild(frag);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  RENDER TABLE (PostQueue, Inbox, History, Logs)
+// ─────────────────────────────────────────────────────────────
+function renderTable(tableId, logicalName, filterVal) {
+  const tbl = document.getElementById(tableId);
+  if (!tbl) return;
+  const d = DATA[logicalName];
+  if (!d) return;
+  const { headers, rows } = d;
+
+  tbl.querySelector('thead').innerHTML =
+    '<tr>' + headers.map(h => `<th>${esc(h)}</th>`).join('') + '</tr>';
+
+  const fv   = (filterVal||'').toLowerCase();
+  const si   = headers.findIndex(h => h.toUpperCase() === 'STATUS');
+  let visible = (fv && fv !== 'all')
+    ? rows.filter(r => (r[si]||'').toLowerCase().includes(fv))
+    : rows;
+  if (searchQ && ['inbox-table','history-table'].includes(tableId))
+    visible = visible.filter(r => r.join(' ').toLowerCase().includes(searchQ));
+
+  if (!visible.length) {
+    tbl.querySelector('tbody').innerHTML = `<tr><td colspan="${headers.length}" style="padding:40px;text-align:center;color:var(--muted);font-family:var(--mono);font-size:11px">NO ROWS</td></tr>`;
+    return;
+  }
+
+  const CLICK_SHEETS = new Set(['Inbox','InboxQueue','Inbox & Activity','MsgHistory']);
+  const isClickable  = CLICK_SHEETS.has(logicalName);
+  const [fg] = avatarPalette('x');
+
+  tbl.querySelector('tbody').innerHTML = visible.map(row => {
+    const cells = headers.map((h, ci) => {
+      const H = h.toUpperCase();
+      const val = row[ci] || '';
+      if (H === 'STATUS') return `<td>${statusBadge(val)||'—'}</td>`;
+      if (H === 'NICK' || H === 'NICK/URL') {
+        const [fg2] = avatarPalette(val);
+        return `<td><span style="display:inline-flex;align-items:center;gap:8px"><span style="width:26px;height:26px;border-radius:6px;background:${fg2};color:#fff;display:inline-grid;place-items:center;font-family:var(--mono);font-size:11px;font-weight:700;flex-shrink:0">${esc((val||'?')[0].toUpperCase())}</span>${esc(val)}</span></td>`;
+      }
+      if (H === 'RESULT_URL' || H === 'RESULT URL' || H === 'POST_URL') {
+        return val ? `<td><a href="${esc(val)}" target="_blank" style="color:var(--blue);font-family:var(--mono);font-size:11px;text-decoration:none">View ↗</a></td>` : '<td>—</td>';
+      }
+      if (['MESSAGE','MY_REPLY','DETAILS','NOTES','TEXT'].includes(H)) {
+        return `<td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(val)}">${esc(val)||'—'}</td>`;
+      }
+      return `<td>${esc(val)||'—'}</td>`;
+    }).join('');
+    const click = isClickable ? `style="cursor:pointer" onclick="openDrawer(${JSON.stringify(headers)},${JSON.stringify(row)})"` : '';
+    return `<tr ${click}>${cells}</tr>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────────────────────────
+//  OPEN DRAWER
+// ─────────────────────────────────────────────────────────────
+function openDrawer(headers, row) {
+  const nickIdx = headers.findIndex(h => ['NICK','NICK/URL','NAME'].includes(h.toUpperCase()));
+  const nick    = row[nickIdx] || '—';
+  const si      = headers.findIndex(h => h.toUpperCase() === 'STATUS');
+  const status  = si >= 0 ? (row[si]||'') : '';
+  const [fg, bg]= avatarPalette(nick);
+
+  document.getElementById('d-nick').textContent = nick;
+
+  // Hero
+  document.getElementById('d-hero').innerHTML = `
+    <div style="width:64px;height:64px;border-radius:12px;background:${fg};color:#fff;display:grid;place-items:center;font-family:var(--mono);font-size:26px;font-weight:700;flex-shrink:0">${esc(nick[0]?.toUpperCase()||'?')}</div>
+    <div>
+      <div style="font-size:18px;font-weight:700;color:var(--text)">${esc(nick)}</div>
+      ${status ? `<div style="margin-top:6px">${statusBadge(status)}</div>` : ''}
+    </div>`;
+
+  // Grid
+  let gridHtml = '';
+  const urlIdx = headers.findIndex(h => ['RESULT_URL','POST_URL','RESULT URL'].includes(h.toUpperCase()));
+  const resultUrl = urlIdx >= 0 ? row[urlIdx] : '';
+  headers.forEach((h, ci) => {
+    const H   = h.toUpperCase();
+    const val = row[ci] || '—';
+    const full= ['MESSAGE','MY_REPLY','NOTES','DETAILS','TEXT','CONVERSATION_LOG'].includes(H);
+    const isUrl = String(val).startsWith('http');
+    const display = isUrl ? `<a href="${esc(val)}" target="_blank">Open ↗</a>` : esc(val);
+    gridHtml += `<div class="drawer-field${full?' df-full':''}">
+      <div class="df-key">${esc(h)}</div>
+      <div class="df-val">${display}</div>
+    </div>`;
+  });
+  document.getElementById('d-grid').innerHTML = gridHtml;
+
+  // Actions
+  const profileUrl = `https://damadam.pk/users/${encodeURIComponent(nick)}/`;
+  document.getElementById('d-actions').innerHTML = `
+    <a href="${esc(profileUrl)}" target="_blank" class="btn" style="flex:1;justify-content:center;background:var(--blue);color:#fff;font-family:var(--ui);font-size:13px;font-weight:700;padding:9px 0;border-radius:8px;border:none;text-decoration:none">👤 View Profile</a>
+    ${resultUrl ? `<a href="${esc(resultUrl)}" target="_blank" class="btn" style="flex:1;justify-content:center;background:var(--teal-l);color:var(--teal);border:1.5px solid #99f6e4;font-family:var(--ui);font-size:13px;font-weight:700;padding:9px 0;border-radius:8px;text-decoration:none">🔗 Result URL</a>` : ''}`;
+
+  document.getElementById('drawer-overlay').classList.add('open');
+}
+function closeDrawer(e) { if (e.target.id === 'drawer-overlay') closeDrawerDirect(); }
+function closeDrawerDirect() { document.getElementById('drawer-overlay').classList.remove('open'); }
+
+// ─────────────────────────────────────────────────────────────
+//  STATS
+// ─────────────────────────────────────────────────────────────
+function updateStats() {
+  const ml = DATA['MsgList'];
+  const pq = DATA['PostQueue'];
+  const mh = DATA['MsgHistory'];
+  const ib = DATA['Inbox'];
+
+  if (ml) {
+    setEl('s-msg-total', ml.rows.length);
+    const si = ml.headers.findIndex(h => h.toUpperCase()==='STATUS');
+    const p  = si>=0 ? ml.rows.filter(r=>(r[si]||'').toLowerCase().startsWith('pending')).length : 0;
+    setEl('s-msg-pending', `${p} pending`);
+    setEl('badge-msglist', ml.rows.length);
+  }
+  if (pq) {
+    setEl('s-post-total', pq.rows.length);
+    const si = pq.headers.findIndex(h => h.toUpperCase()==='STATUS');
+    const p  = si>=0 ? pq.rows.filter(r=>(r[si]||'').toLowerCase().startsWith('pending')).length : 0;
+    setEl('s-post-pending', `${p} pending`);
+    setEl('badge-postqueue', pq.rows.length);
+  }
+  if (mh) {
+    setEl('s-sent', mh.rows.length);
+    setEl('badge-history', mh.rows.length);
+  }
+  if (ib) {
+    const si = ib.headers.findIndex(h => h.toUpperCase()==='STATUS');
+    const p  = si>=0 ? ib.rows.filter(r=>(r[si]||'').toLowerCase().startsWith('pending')).length : 0;
+    setEl('s-inbox-pending', p);
+    setEl('badge-inbox', ib.rows.length);
+  }
+  if (DATA['Logs']) setEl('badge-logs', DATA['Logs'].rows.length);
+
+  const now = new Date();
+  setEl('s-last-time', now.toLocaleTimeString());
+  setEl('s-last-date', now.toLocaleDateString());
+}
+
+// ─────────────────────────────────────────────────────────────
+//  TAB NAVIGATION
+// ─────────────────────────────────────────────────────────────
+const TAB_MAP = {
+  msglist:   'MsgList',
+  postqueue: 'PostQueue',
+  inbox:     'Inbox',
+  history:   'MsgHistory',
+  logs:      'Logs',
+};
+
+function switchTab(name) {
+  currentTab = name;
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(`page-${name}`)?.classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach(t => {
+    if (t.getAttribute('onclick')?.includes(`'${name}'`)) t.classList.add('active');
+  });
+  // Auto-load
+  const logical = TAB_MAP[name];
+  if (logical && !DATA[logical]) reloadTab(logical, name);
+  if (name === 'logs') {
+    if (!DATA['Logs'])            reloadTab('Logs','logs');
+    if (!DATA['ConversationLog']) reloadTab('ConversationLog','convlog');
+  }
+  if (name === 'inbox') {
+    if (!DATA['Inbox'])           reloadTab('Inbox','inbox');
+    if (!DATA['Logs'])            reloadTab('Logs','logs');
+    if (!DATA['ConversationLog']) reloadTab('ConversationLog','convlog');
+  }
+}
+
+function showSubTab(name) {
+  ['inbox','logs','convlog'].forEach(id => {
+    const el  = document.getElementById(`subtab-${id}`);
+    const btn = document.getElementById(`st-${id}-btn`);
+    if (el)  el.style.display  = id === name ? '' : 'none';
+    if (btn) btn.classList.toggle('active', id === name);
+  });
+  // Render on demand
+  if (name === 'logs')    renderTable('logs-table',   'Logs','');
+  if (name === 'convlog') renderTable('convlog-table','ConversationLog','');
+}
+
+// ─────────────────────────────────────────────────────────────
+//  RELOAD TAB
+// ─────────────────────────────────────────────────────────────
+async function reloadTab(logicalName, tabId) {
+  const statusEl = document.getElementById(`status-${tabId}`);
+  if (statusEl) statusEl.innerHTML = '<span style="font-family:var(--mono);font-size:10px">Loading…</span>';
+  try {
+    await loadSheet(logicalName);
+    renderTabContent(logicalName, tabId);
+    updateStats();
+    if (statusEl) statusEl.textContent = `${DATA[logicalName]?.rows.length || 0} rows · ${new Date().toLocaleTimeString()}`;
+  } catch(e) {
+    if (statusEl) statusEl.textContent = `Error: ${e.message.slice(0,50)}`;
+    showToast(`Failed to load ${logicalName}: ${e.message.slice(0,60)}`, 'err');
+  }
+}
+
+function renderTabContent(logicalName, tabId) {
+  const fv = FILTERS[logicalName] || '';
+  switch (logicalName) {
+    case 'MsgList':
+      renderCards('MsgList', fv);
+      const foot = document.getElementById('footer-msglist');
+      if (foot) { foot.style.display=''; setEl('fc-msglist',`${DATA['MsgList']?.rows.length||0} rows`); setEl('fu-msglist',`Updated ${new Date().toLocaleTimeString()}`); }
+      break;
+    case 'PostQueue':
+      renderTable('postqueue-table','PostQueue', fv);
+      const fpq = document.getElementById('footer-postqueue');
+      if (fpq) { fpq.style.display=''; setEl('fc-postqueue',`${DATA['PostQueue']?.rows.length||0} rows`); setEl('fu-postqueue',`Updated ${new Date().toLocaleTimeString()}`); }
+      break;
+    case 'Inbox':
+      renderTable('inbox-table','Inbox', fv);
+      const fin = document.getElementById('footer-inbox');
+      if (fin) { fin.style.display=''; setEl('fc-inbox',`${DATA['Inbox']?.rows.length||0} rows`); setEl('fu-inbox',`Updated ${new Date().toLocaleTimeString()}`); }
+      break;
+    case 'MsgHistory':
+      renderTable('history-table','MsgHistory', fv);
+      const fh = document.getElementById('footer-history');
+      if (fh) { fh.style.display=''; setEl('fc-history',`${DATA['MsgHistory']?.rows.length||0} rows`); setEl('fu-history',`Updated ${new Date().toLocaleTimeString()}`); }
+      break;
+    case 'Logs':
+      renderTable('actlogs-table','Logs','');
+      renderTable('logs-table','Logs','');
+      break;
+    case 'ConversationLog':
+      renderTable('convlogs-table','ConversationLog','');
+      renderTable('convlog-table','ConversationLog','');
+      break;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  REFRESH ALL
+// ─────────────────────────────────────────────────────────────
+async function refreshAll() {
+  showToast('Refreshing all sheets…','info');
+  Object.keys(DATA).forEach(k => delete DATA[k]);
+  const all = Object.keys(SHEET_TABS);
+  await Promise.allSettled(all.map(k => loadSheet(k)));
+  // Re-render
+  Object.keys(SHEET_TABS).forEach(k => renderTabContent(k, k.toLowerCase()));
+  updateStats();
+  showToast('All sheets refreshed!','ok');
+}
+
+// ─────────────────────────────────────────────────────────────
+//  FILTER BUTTONS
+// ─────────────────────────────────────────────────────────────
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const sheet  = btn.dataset.sheet;
+    const filter = btn.dataset.filter;
+    document.querySelectorAll(`.filter-btn[data-sheet="${sheet}"]`)
+      .forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    FILTERS[sheet] = filter === 'all' ? '' : filter;
+    switch (sheet) {
+      case 'MsgList':    renderCards('MsgList',   FILTERS[sheet]); break;
+      case 'PostQueue':  renderTable('postqueue-table','PostQueue',  FILTERS[sheet]); break;
+      case 'Inbox':      renderTable('inbox-table',    'Inbox',      FILTERS[sheet]); break;
+      case 'MsgHistory': renderTable('history-table',  'MsgHistory', FILTERS[sheet]); break;
+    }
+  });
+});
+
+function applySortFilter(sheet, sortKey) {
+  const d = DATA[sheet]; if (!d) return;
+  if (!sortKey) { renderCards(sheet, FILTERS[sheet]||''); return; }
+  const [col, dir] = sortKey.split('_');
+  const colIdx = d.headers.findIndex(h => h.toLowerCase().includes(col));
+  if (colIdx < 0) return;
+  const sorted = [...d.rows].sort((a, b) => String(a[colIdx]||'').localeCompare(String(b[colIdx]||'')));
+  const tmp = DATA[sheet];
+  DATA[sheet] = { headers: tmp.headers, rows: dir==='desc' ? sorted.reverse() : sorted };
+  renderCards(sheet, FILTERS[sheet]||'');
+  DATA[sheet] = tmp; // restore original order
+}
+
+function filterByColValue(tableId, colName, val) {
+  const tbl = document.getElementById(tableId); if (!tbl) return;
+  const ths = [...tbl.querySelectorAll('thead th')];
+  const ci  = ths.findIndex(t => t.textContent.trim().toUpperCase() === colName.toUpperCase());
+  tbl.querySelectorAll('tbody tr').forEach(tr => {
+    if (!val) { tr.style.display=''; return; }
+    tr.style.display = (tr.cells[ci]?.textContent||'').toLowerCase().includes(val.toLowerCase()) ? '' : 'none';
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+//  SEARCH
+// ─────────────────────────────────────────────────────────────
+document.getElementById('search-input').addEventListener('input', e => {
+  searchQ = e.target.value.trim().toLowerCase();
+  if (currentTab === 'msglist') renderCards('MsgList', FILTERS['MsgList']||'');
+  else {
+    const tableMap = { postqueue:'postqueue-table', inbox:'inbox-table', history:'history-table', logs:'actlogs-table' };
+    const tId = tableMap[currentTab];
+    if (tId) {
+      const lMap = { postqueue:'PostQueue', inbox:'Inbox', history:'MsgHistory', logs:'Logs' };
+      renderTable(tId, lMap[currentTab]||'', FILTERS[lMap[currentTab]]||'');
+    }
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+//  MANUAL RUN (opens confirm modal)
+// ─────────────────────────────────────────────────────────────
+const RUN_INFO = {
+  msg:   { label:'💬 MSG Mode',  cmd:'python main.py --mode msg',   color:'#2563eb', hint:'Sends messages to pending targets in MsgList.' },
+  post:  { label:'📤 POST Mode', cmd:'python main.py --mode post',  color:'#0d9488', hint:'Creates posts from pending items in PostQueue.' },
+  inbox: { label:'📥 INBOX Mode',cmd:'python main.py --mode inbox', color:'#d97706', hint:'Monitors inbox and auto-replies to pending items.' },
+};
+
+function confirmRun(mode) {
+  const info = RUN_INFO[mode];
+  const modal = document.getElementById('run-modal');
+  setEl('modal-title', info.label);
+  setEl('modal-body', `<code style="background:var(--bg);padding:6px 10px;border-radius:6px;font-size:12px;display:block;margin-bottom:10px">${esc(info.cmd)}</code>${info.hint}<br><br><span style="color:var(--amber);font-size:11px">⚠ Make sure your .env is configured and Chrome/chromedriver is ready.</span>`);
+  const btn = document.getElementById('modal-confirm');
+  btn.style.background = info.color;
+  btn.style.color = '#fff';
+  btn.onclick = () => { closeModal(); runScript(mode); };
+  modal.style.display = 'flex';
+}
+
+function closeModal() {
+  document.getElementById('run-modal').style.display = 'none';
+}
+
+function runScript(mode) {
+  const info = RUN_INFO[mode];
+  setEl('run-status', `⏳ ${info.label} launched…`);
+  showToast(`${info.label} command: ${info.cmd}`, 'info');
+  // GitHub Pages cannot exec scripts directly — show instructions
+  setTimeout(() => {
+    setEl('run-status', `ℹ To run: ${info.cmd}`);
+    showToast(`Run in terminal: ${info.cmd}`, 'ok');
+  }, 800);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  HELPERS
+// ─────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function setEl(id, html) { const e=document.getElementById(id); if(e) e.innerHTML=String(html); }
+
+let toastTimer;
+function showToast(msg, type='ok') {
+  const t = document.getElementById('toast');
+  const icons = { ok:'✅', err:'❌', info:'ℹ️' };
+  t.innerHTML = `${icons[type]||''} ${esc(msg)}`;
+  t.className = `show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className='', 3500);
+}
+
+document.addEventListener('keydown', e => { if (e.key==='Escape') { closeDrawerDirect(); closeModal(); } });
+
+// ─────────────────────────────────────────────────────────────
+//  INIT  — load all sheets in parallel
+// ─────────────────────────────────────────────────────────────
+(async () => {
+  showToast('Loading dashboard…','info');
+  await Promise.allSettled(Object.keys(SHEET_TABS).map(k => loadSheet(k)));
+  renderCards('MsgList','');
+  renderTable('postqueue-table','PostQueue','');
+  renderTable('inbox-table','Inbox','');
+  renderTable('history-table','MsgHistory','');
+  renderTable('actlogs-table','Logs','');
+  renderTable('convlogs-table','ConversationLog','');
+  // sub-table mirror
+  renderTable('logs-table','Logs','');
+  renderTable('convlog-table','ConversationLog','');
+  document.getElementById('footer-msglist').style.display='';
+  setEl('fc-msglist', `${DATA['MsgList']?.rows.length||0} rows`);
+  setEl('fu-msglist', `Updated ${new Date().toLocaleTimeString()}`);
+  document.getElementById('footer-postqueue').style.display='';
+  setEl('fc-postqueue', `${DATA['PostQueue']?.rows.length||0} rows`);
+  document.getElementById('footer-inbox').style.display='';
+  setEl('fc-inbox', `${DATA['Inbox']?.rows.length||0} rows`);
+  document.getElementById('footer-history').style.display='';
+  setEl('fc-history', `${DATA['MsgHistory']?.rows.length||0} rows`);
+  updateStats();
+  showToast('Dashboard ready!','ok');
+})();
+</script>
+</body>
+</html>

@@ -1,7 +1,33 @@
 name: Posting Bot
 
 "on":
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      max_profiles:
+        description: "Profiles/posts to process in this run (--max-profiles). Empty = all"
+        type: string
+        required: false
+        default: ""
+      dry_run:
+        description: "--dry-run"
+        type: boolean
+        required: true
+        default: false
+      populate_img_links:
+        description: "--populate-img-links (for post flow)"
+        type: boolean
+        required: true
+        default: false
+      headless:
+        description: "Headless browser"
+        type: boolean
+        required: true
+        default: true
+      debug:
+        description: "Debug logging"
+        type: boolean
+        required: true
+        default: false
   schedule:
     - cron: "*/15 * * * *"
 
@@ -10,11 +36,11 @@ jobs:
     uses: ./.github/workflows/dashboard.yml
     with:
       mode: post
-      max_profiles: ""
-      dry_run: false
-      populate_img_links: false
+      max_profiles: ${{ github.event.inputs.max_profiles || '' }}
+      dry_run: ${{ github.event.inputs.dry_run == true }}
+      populate_img_links: ${{ github.event.inputs.populate_img_links == true }}
       populate_limit: ""
       populate_write: false
-      headless: true
-      debug: false
+      headless: ${{ github.event.inputs.headless != false }}
+      debug: ${{ github.event.inputs.debug == true }}
     secrets: inherit

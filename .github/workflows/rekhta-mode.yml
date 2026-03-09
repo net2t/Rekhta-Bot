@@ -1,7 +1,33 @@
 name: Rekhta Mode
 
 "on":
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      populate_limit:
+        description: "How many Rekhta items to scrape (--populate-limit). Empty = default"
+        type: string
+        required: false
+        default: ""
+      populate_write:
+        description: "Write to PostQueue (--populate-write)"
+        type: boolean
+        required: true
+        default: true
+      dry_run:
+        description: "--dry-run"
+        type: boolean
+        required: true
+        default: false
+      headless:
+        description: "Headless browser"
+        type: boolean
+        required: true
+        default: true
+      debug:
+        description: "Debug logging"
+        type: boolean
+        required: true
+        default: false
   schedule:
     - cron: "*/30 * * * *"
 
@@ -11,10 +37,10 @@ jobs:
     with:
       mode: populate
       max_profiles: ""
-      dry_run: false
+      dry_run: ${{ github.event.inputs.dry_run == true }}
       populate_img_links: false
-      populate_limit: ""
-      populate_write: true
-      headless: true
-      debug: false
+      populate_limit: ${{ github.event.inputs.populate_limit || '' }}
+      populate_write: ${{ github.event.inputs.populate_write != false }}
+      headless: ${{ github.event.inputs.headless != false }}
+      debug: ${{ github.event.inputs.debug == true }}
     secrets: inherit

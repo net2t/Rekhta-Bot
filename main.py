@@ -1322,6 +1322,56 @@ class PostHistoryRecorder:
         values = [timestamp, post_type, title, image_path, post_url, status, notes]
         self.sheets.append_row(self.history_sheet, values)
 
+class PostQueueIndex:
+    def __init__(self):
+        self.keys: set = set()
+
+    @staticmethod
+    def _norm(s: str) -> str:
+        return (s or "").strip().lower()
+
+    def add(self, value: str) -> None:
+        k = self._norm(value)
+        if k:
+            self.keys.add(k)
+
+    def contains(self, value: str) -> bool:
+        k = self._norm(value)
+        return bool(k and k in self.keys)
+
+    @classmethod
+    def from_postqueue_values(cls, all_rows: List[List[str]], header_map: Dict[str, int]):
+        idx = cls()
+        if not all_rows:
+            return idx
+
+        headers = all_rows[0] if all_rows else []
+        if not headers:
+            return idx
+
+        def find_col(*names: str) -> Optional[int]:
+            for name in names:
+                key = (name or "").strip().upper()
+                if key in header_map:
+                    return header_map[key]
+            return None
+
+        col_image_path = find_col("IMAGE_PATH", "IMG_LINK", "IMG", "IMAGE")
+        col_source_url = find_col("SOURCE_URL", "POST_LINK", "POST_URL_SOURCE", "SOURCE")
+        col_post_url = find_col("POST_URL", "RESULT_URL", "RESULT URL")
+
+        for row in all_rows[1:]:
+            try:
+                if col_image_path is not None and len(row) > col_image_path:
+                    idx.add(row[col_image_path])
+                if col_source_url is not None and len(row) > col_source_url:
+                    idx.add(row[col_source_url])
+                if col_post_url is not None and len(row) > col_post_url:
+                    idx.add(row[col_post_url])
+            except Exception:
+                continue
+        return idx
+
 class ActivityLogger:
     def __init__(self, sheets_manager: SheetsManager, logger: Logger):
         self.sheets = sheets_manager
@@ -2571,6 +2621,19 @@ class PostQueueLinkPopulator:
             return 0
 
         values = sheet.get_all_values()
+        # Build a lightweight index of already-known URLs to prevent duplicate work.
+        # Only index rows that already have an image URL, so we don't block the current row.
+        pq_index = PostQueueIndex()
+        for row in values[1:]:
+            try:
+                src_val = (row[src_col_idx - 1] if len(row) >= src_col_idx else "").strip()
+                img_val = (row[tgt_img_col_idx - 1] if len(row) >= tgt_img_col_idx else "").strip()
+                if img_val:
+                    pq_index.add(img_val)
+                    pq_index.add(src_val)
+            except Exception:
+                continue
+
         updated = 0
         for r_i, row in enumerate(values[1:], start=2):
             if max_rows and updated >= max_rows:
@@ -2579,6 +2642,9 @@ class PostQueueLinkPopulator:
             source_url = (row[src_col_idx - 1] if len(row) >= src_col_idx else "").strip()
             current_img = (row[tgt_img_col_idx - 1] if len(row) >= tgt_img_col_idx else "").strip()
             if not source_url or current_img:
+                continue
+
+            if pq_index.contains(source_url):
                 continue
 
             if not self._is_http_url(source_url):
@@ -2603,6 +2669,12 @@ class PostQueueLinkPopulator:
                     f"Rekhta data row={r_i} | img_url={(img_url or 'N/A')[:120]} | title={(title or 'N/A')[:80]} | poet={(poet or 'N/A')[:80]}"
                 )
 
+                if img_url and pq_index.contains(img_url):
+                    # Duplicate image already exists in PostQueue
+                    updated += 1
+                    pq_index.add(source_url)
+                    continue
+
                 if preview_only:
                     updated += 1
                     continue
@@ -2611,6 +2683,10 @@ class PostQueueLinkPopulator:
                     sheet.update_cell(r_i, tgt_img_col_idx, img_url)
                 else:
                     sheet.update_cell(r_i, tgt_img_col_idx, "IMAGE_NOT_FOUND")
+
+                pq_index.add(source_url)
+                if img_url:
+                    pq_index.add(img_url)
 
                 if tgt_title_ur_col_idx and caption:
                     sheet.update_cell(r_i, tgt_title_ur_col_idx, caption)
@@ -3801,17 +3877,8 @@ def run_populate_mode(args):
                 sheets_mgr.api_calls += 1
                 all_rows = post_queue.get_all_values()
 
-        # Build existing sets: image URLs + source listing URLs (both block re-scraping)
-        existing_image_urls = set()
-        existing_source_urls = set()
-        for row in all_rows[1:]:
-            if col_image_path is not None and len(row) > col_image_path and row[col_image_path].strip():
-                existing_image_urls.add(row[col_image_path].strip().lower())
-            if col_source_url is not None and len(row) > col_source_url and row[col_source_url].strip():
-                existing_source_urls.add(row[col_source_url].strip().lower())
-            # Also treat the NOTES field for legacy rows that didn't track source URL
-            # Check TITLE to guard against repeated shayari titles
-        existing_links = existing_image_urls | existing_source_urls
+        # ── Build unified duplicate index from PostQueue ──
+        pq_index = PostQueueIndex.from_postqueue_values(all_rows, header_map)
 
         listing_url = (Config.REKHTA_LISTING_URL or "").strip()
         if not listing_url:
@@ -3841,7 +3908,6 @@ def run_populate_mode(args):
         total = len(items)
         added = 0
         skipped = 0
-        seen_links = set(existing_links)
 
         with Progress(
             SpinnerColumn(),
@@ -3872,7 +3938,7 @@ def run_populate_mode(args):
                         continue
 
                     src_key = source_url.lower()
-                    if src_key in seen_links:
+                    if pq_index.contains(src_key):
                         skipped += 1
                         try:
                             activity.log(
@@ -3891,7 +3957,7 @@ def run_populate_mode(args):
                     # If it's already present in PostQueue, skip opening the detail page.
                     listing_img = (item.get("listing_img") or "").strip()
                     listing_img_key = listing_img.lower() if listing_img else ""
-                    if listing_img_key and listing_img_key in seen_links:
+                    if listing_img_key and pq_index.contains(listing_img_key):
                         skipped += 1
                         logger.info(f"  ↳ Skipped: IMAGE_PATH already exists in PostQueue")
                         try:
@@ -3905,7 +3971,7 @@ def run_populate_mode(args):
                             )
                         except Exception:
                             pass
-                        seen_links.add(src_key)
+                        pq_index.add(src_key)
                         continue
 
                     try:
@@ -3941,7 +4007,7 @@ def run_populate_mode(args):
 
                     # ── Block duplicate final image URL before writing ──
                     img_key = (img_url or "").strip().lower()
-                    if img_key and img_key in seen_links:
+                    if img_key and pq_index.contains(img_key):
                         skipped += 1
                         logger.info(f"  ↳ Skipped: IMAGE_PATH already exists in PostQueue")
                         try:
@@ -3953,9 +4019,9 @@ def run_populate_mode(args):
 
                     if preview_only:
                         added += 1
-                        seen_links.add(src_key)
+                        pq_index.add(src_key)
                         if img_key:
-                            seen_links.add(img_key)
+                            pq_index.add(img_key)
                         try:
                             activity.log(
                                 mode="populate", action="preview_item", nick="",
@@ -3990,9 +4056,9 @@ def run_populate_mode(args):
                         row[col_source_url] = source_url
 
                     sheets_mgr.append_row(post_queue, row)
-                    seen_links.add(src_key)
+                    pq_index.add(src_key)
                     if img_key:
-                        seen_links.add(img_key)
+                        pq_index.add(img_key)
                     added += 1
                     try:
                         activity.log(
@@ -4125,6 +4191,24 @@ def run_post_mode(args):
                     return val
             return ""
 
+        # Build an index of already-processed posts to avoid re-posting duplicates.
+        # We only consider rows that are NOT pending as "already done".
+        posted_index = PostQueueIndex()
+        if use_headers and all_rows:
+            for r in all_rows[1:]:
+                try:
+                    st = get_any(r, "STATUS", "STATU").lower()
+                    if st.startswith("pending"):
+                        continue
+                    img_val = get_any(r, "IMAGE_PATH", "IMG_LINK", "IMAGE", "IMAGE_URL")
+                    post_url_val = get_any(r, "POST_URL", "RESULT_URL", "RESULT URL")
+                    if img_val:
+                        posted_index.add(img_val)
+                    if post_url_val:
+                        posted_index.add(post_url_val)
+                except Exception:
+                    continue
+
         def find_col(*keys: str, default_1_based: int) -> int:
             if not use_headers:
                 return default_1_based
@@ -4152,6 +4236,7 @@ def run_post_mode(args):
             col_notes = 9
 
         pending = []
+        dup_skipped = 0
         for i, row in enumerate(all_rows[1:], start=2):
             if use_headers:
                 post_type = get_any(row, "TYPE").lower()
@@ -4194,6 +4279,17 @@ def run_post_mode(args):
             if not should_run:
                 continue
 
+            # Unified duplicate skip for image posts:
+            # If the same IMAGE_PATH already appears in a non-pending row, don't attempt to post again.
+            if use_headers and post_type != "text" and image_path and posted_index.contains(image_path):
+                dup_skipped += 1
+                try:
+                    sheets_mgr.update_cell(post_queue, i, col_status, "Skipped Duplicate")
+                    sheets_mgr.update_cell(post_queue, i, col_notes, "Duplicate IMAGE_PATH already processed")
+                except Exception:
+                    pass
+                continue
+
             pending.append({
                 "row": i,
                 "type": post_type,
@@ -4207,6 +4303,9 @@ def run_post_mode(args):
         if not pending:
             logger.warning("No pending posts in PostQueue")
             return
+
+        if dup_skipped:
+            logger.info(f"Skipped {dup_skipped} pending rows due to duplicate IMAGE_PATH")
 
         if Config.MAX_PROFILES > 0:
             pending = pending[:Config.MAX_PROFILES]
@@ -4274,170 +4373,193 @@ def run_post_mode(args):
                     logger.info(f"\n[{idx}/{len(pending)}] 📝 {post['type'].upper()} (row {row_ref})")
                     logger.info("─" * 50)
 
-                    try:
-                        # Small randomized delay before each attempt to reduce rate-limit patterns
-                        pre = _jitter_seconds(Config.POST_PRE_SUBMIT_DELAY_SECONDS, Config.POST_PRE_SUBMIT_JITTER_SECONDS)
-                        if pre > 0:
-                            cooldown_wait(int(pre))
+                    max_attempts = max(1, int(getattr(Config, "POST_MAX_ATTEMPTS", 1) or 1))
+                    attempt = 0
+                    row_done = False
 
-                        result = None
-                        if post["type"] == "text":
-                            result = creator.create_text_post(
-                                title=post.get("title", ""),
-                                content=post.get("content", ""),
-                                tags=post.get("tags", "")
-                            )
-                        elif post["type"] == "image":
-                            result = creator.create_image_post(
-                                image_path=post.get("image_path", ""),
-                                title=post.get("title", ""),
-                                content=post.get("content", ""),
-                                tags=post.get("tags", "")
-                            )
-                        else:
-                            logger.error(f"Unknown type: {post['type']}")
-                            sheets_mgr.update_cell(post_queue, post["row"], col_status, "Failed")
-                            sheets_mgr.update_cell(post_queue, post["row"], col_notes, "Invalid type")
-                            failed += 1
-                            progress.advance(task_id, 1)
-                            if idx < len(pending):
-                                short_retry_wait()
-                            continue
+                    while attempt < max_attempts and not row_done:
+                        attempt += 1
+                        try:
+                            logger.info(f"Attempt {attempt}/{max_attempts} (row {row_ref})")
 
-                        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        status = (result.get("status") if result else "") or "Error"
-                        result_url = (result.get("url") if result else "") or ""
+                            # Small randomized delay before each attempt to reduce rate-limit patterns
+                            pre = _jitter_seconds(Config.POST_PRE_SUBMIT_DELAY_SECONDS, Config.POST_PRE_SUBMIT_JITTER_SECONDS)
+                            if pre > 0:
+                                cooldown_wait(int(pre))
 
-                        if status == "Rate Limited":
-                            sheets_mgr.update_cell(post_queue, post["row"], col_status, "Failed")
-                            sheets_mgr.update_cell(post_queue, post["row"], col_notes, "Rate limited")
-                            failed += 1
-                            post_history.record_post(
-                                post_type=post.get("type", ""),
-                                title=post.get("title", ""),
-                                image_path=post.get("image_path", ""),
-                                post_url="",
-                                status="Failed",
-                                notes="Rate limited"
-                            )
-                            progress.advance(task_id, 1)
-                            if idx < len(pending):
-                                short_retry_wait()
-                            continue
-
-                        if status == "Repeating":
-                            sheets_mgr.update_cell(post_queue, post["row"], col_status, "Repeating")
-                            sheets_mgr.update_cell(post_queue, post["row"], col_notes, "Image rejected: repeating/duplicate")
-                            failed += 1
-                            post_history.record_post(
-                                post_type=post.get("type", ""),
-                                title=post.get("title", ""),
-                                image_path=post.get("image_path", ""),
-                                post_url="",
-                                status="Repeating",
-                                notes="Image rejected: repeating/duplicate"
-                            )
-                            progress.advance(task_id, 1)
-                            if idx < len(pending):
-                                short_retry_wait()
-                            continue
-
-                        if status in {"Denied", "Error"}:
-                            sheets_mgr.update_cell(post_queue, post["row"], col_status, "Failed")
-                            sheets_mgr.update_cell(post_queue, post["row"], col_notes, f"{status}: {result_url}")
-                            failed += 1
-                            post_history.record_post(
-                                post_type=post.get("type", ""),
-                                title=post.get("title", ""),
-                                image_path=post.get("image_path", ""),
-                                post_url=result_url,
-                                status="Failed",
-                                notes=f"{status}: {result_url}"
-                            )
-                            progress.advance(task_id, 1)
-                            if idx < len(pending):
-                                short_retry_wait()
-                            continue
-
-                        if status == "Dry Run" or "Posted" in status:
-                            sheets_mgr.update_cell(post_queue, post["row"], col_status, "Done")
-                            if result_url:
-                                sheets_mgr.update_cell(post_queue, post["row"], col_post_url, result_url)
-                            sheets_mgr.update_cell(post_queue, post["row"], col_timestamp, timestamp)
-                            sheets_mgr.update_cell(post_queue, post["row"], col_notes, status)
-                            success += 1
-                            post_history.record_post(
-                                post_type=post.get("type", ""),
-                                title=post.get("title", ""),
-                                image_path=post.get("image_path", ""),
-                                post_url=result_url,
-                                status=status,
-                                notes=status
-                            )
-                            try:
-                                activity.log(
-                                    mode="post",
-                                    action="create_post",
-                                    nick="",
-                                    url=result_url,
-                                    status=status,
-                                    details=f"type={post.get('type','')}"
+                            result = None
+                            if post["type"] == "text":
+                                result = creator.create_text_post(
+                                    title=post.get("title", ""),
+                                    content=post.get("content", ""),
+                                    tags=post.get("tags", "")
                                 )
-                            except Exception:
-                                pass
-                            progress.advance(task_id, 1)
-                            if idx < len(pending):
-                                cooldown_wait(123)
-                            continue
-
-                        if "Verification" in status:
-                            is_post_url = ProfileScraper.is_valid_url(result_url)
-                            if (not is_post_url) or PostCreator._is_denied_or_share_url(result_url):
+                            elif post["type"] == "image":
+                                result = creator.create_image_post(
+                                    image_path=post.get("image_path", ""),
+                                    title=post.get("title", ""),
+                                    content=post.get("content", ""),
+                                    tags=post.get("tags", "")
+                                )
+                            else:
+                                logger.error(f"Unknown type: {post['type']}")
                                 sheets_mgr.update_cell(post_queue, post["row"], col_status, "Failed")
-                                sheets_mgr.update_cell(post_queue, post["row"], col_notes, f"{status}")
+                                sheets_mgr.update_cell(post_queue, post["row"], col_notes, "Invalid type")
                                 failed += 1
+                                row_done = True
+                                break
+
+                            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            status = (result.get("status") if result else "") or "Error"
+                            result_url = (result.get("url") if result else "") or ""
+
+                            if status == "Rate Limited":
+                                sheets_mgr.update_cell(post_queue, post["row"], col_status, "Failed")
+                                sheets_mgr.update_cell(post_queue, post["row"], col_notes, "Rate limited")
+                                failed += 1
+                                post_history.record_post(
+                                    post_type=post.get("type", ""),
+                                    title=post.get("title", ""),
+                                    image_path=post.get("image_path", ""),
+                                    post_url="",
+                                    status="Failed",
+                                    notes="Rate limited"
+                                )
+                                row_done = True
+                                break
+
+                            if status == "Repeating":
+                                sheets_mgr.update_cell(post_queue, post["row"], col_status, "Repeating")
+                                sheets_mgr.update_cell(
+                                    post_queue,
+                                    post["row"],
+                                    col_notes,
+                                    f"Image rejected: repeating/duplicate (attempt {attempt}/{max_attempts})"
+                                )
+                                post_history.record_post(
+                                    post_type=post.get("type", ""),
+                                    title=post.get("title", ""),
+                                    image_path=post.get("image_path", ""),
+                                    post_url="",
+                                    status="Repeating",
+                                    notes="Image rejected: repeating/duplicate"
+                                )
+
+                                if attempt < max_attempts:
+                                    short_retry_wait()
+                                    continue
+                                failed += 1
+                                row_done = True
+                                break
+
+                            if status in {"Denied", "Error"}:
+                                sheets_mgr.update_cell(post_queue, post["row"], col_status, "Failed")
+                                sheets_mgr.update_cell(
+                                    post_queue,
+                                    post["row"],
+                                    col_notes,
+                                    f"{status} (attempt {attempt}/{max_attempts}): {result_url}"
+                                )
                                 post_history.record_post(
                                     post_type=post.get("type", ""),
                                     title=post.get("title", ""),
                                     image_path=post.get("image_path", ""),
                                     post_url=result_url,
                                     status="Failed",
-                                    notes=f"Verification failed: {status}"
+                                    notes=f"{status}: {result_url}"
                                 )
-                                progress.advance(task_id, 1)
-                                if idx < len(pending):
+
+                                if attempt < max_attempts:
                                     short_retry_wait()
-                            else:
+                                    continue
+                                failed += 1
+                                row_done = True
+                                break
+
+                            if status == "Dry Run" or "Posted" in status:
                                 sheets_mgr.update_cell(post_queue, post["row"], col_status, "Done")
                                 if result_url:
                                     sheets_mgr.update_cell(post_queue, post["row"], col_post_url, result_url)
                                 sheets_mgr.update_cell(post_queue, post["row"], col_timestamp, timestamp)
                                 sheets_mgr.update_cell(post_queue, post["row"], col_notes, status)
                                 success += 1
-                                progress.advance(task_id, 1)
+                                post_history.record_post(
+                                    post_type=post.get("type", ""),
+                                    title=post.get("title", ""),
+                                    image_path=post.get("image_path", ""),
+                                    post_url=result_url,
+                                    status=status,
+                                    notes=status
+                                )
+                                try:
+                                    activity.log(
+                                        mode="post",
+                                        action="create_post",
+                                        nick="",
+                                        url=result_url,
+                                        status=status,
+                                        details=f"type={post.get('type','')}"
+                                    )
+                                except Exception:
+                                    pass
+                                row_done = True
                                 if idx < len(pending):
                                     cooldown_wait(123)
-                            continue
+                                break
 
-                        sheets_mgr.update_cell(post_queue, post["row"], col_status, "Failed")
-                        sheets_mgr.update_cell(post_queue, post["row"], col_notes, f"{status}")
-                        failed += 1
-                        progress.advance(task_id, 1)
-                        if idx < len(pending):
-                            short_retry_wait()
-                    except KeyboardInterrupt:
-                        raise
-                    except Exception as e:
-                        logger.error(f"Error: {e}")
-                        try:
+                            if "Verification" in status:
+                                is_post_url = ProfileScraper.is_valid_url(result_url)
+                                if (not is_post_url) or PostCreator._is_denied_or_share_url(result_url):
+                                    sheets_mgr.update_cell(post_queue, post["row"], col_status, "Failed")
+                                    sheets_mgr.update_cell(post_queue, post["row"], col_notes, f"{status}")
+                                    if attempt < max_attempts:
+                                        short_retry_wait()
+                                        continue
+                                    failed += 1
+                                    row_done = True
+                                else:
+                                    sheets_mgr.update_cell(post_queue, post["row"], col_status, "Done")
+                                    if result_url:
+                                        sheets_mgr.update_cell(post_queue, post["row"], col_post_url, result_url)
+                                    sheets_mgr.update_cell(post_queue, post["row"], col_timestamp, timestamp)
+                                    sheets_mgr.update_cell(post_queue, post["row"], col_notes, status)
+                                    success += 1
+                                    row_done = True
+                                    if idx < len(pending):
+                                        cooldown_wait(123)
+                                break
+
                             sheets_mgr.update_cell(post_queue, post["row"], col_status, "Failed")
-                            sheets_mgr.update_cell(post_queue, post["row"], col_notes, str(e)[:50])
-                        except Exception:
-                            pass
-                        failed += 1
-                        progress.advance(task_id, 1)
-                        if idx < len(pending):
-                            short_retry_wait()
+                            sheets_mgr.update_cell(post_queue, post["row"], col_notes, f"{status}")
+                            if attempt < max_attempts:
+                                short_retry_wait()
+                                continue
+                            failed += 1
+                            row_done = True
+                            break
+
+                        except KeyboardInterrupt:
+                            raise
+                        except Exception as e:
+                            logger.error(f"Error: {e}")
+                            try:
+                                sheets_mgr.update_cell(post_queue, post["row"], col_status, "Failed")
+                                sheets_mgr.update_cell(
+                                    post_queue,
+                                    post["row"],
+                                    col_notes,
+                                    f"Exception (attempt {attempt}/{max_attempts}): {str(e)[:50]}"
+                                )
+                            except Exception:
+                                pass
+                            if attempt < max_attempts:
+                                short_retry_wait()
+                                continue
+                            failed += 1
+                            row_done = True
+                            break
+
+                    progress.advance(task_id, 1)
 
             except KeyboardInterrupt:
                 logger.warning("\n⚠️ Interrupted by user")

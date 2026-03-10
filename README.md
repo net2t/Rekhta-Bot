@@ -13,54 +13,38 @@ Clean, modular, multi-mode automation bot for DamaDam.pk with three complete pha
 
 ## 🌐 GitHub Pages Dashboard
 
-**Live URL:** https://net2t.github.io/DD-Msg-Bot/
+**Live URL:** <https://net2t.github.io/DD-Msg-Bot/>
 
 The GitHub Pages dashboard lets you:
+
 - View all sheets (MsgList, PostQueue, Inbox, MsgHistory, Logs) in your browser
 - Edit rows directly (STATUS, MESSAGE, REPLY, etc.) and **auto-sync back to Google Sheets**
 - Add new targets / posts without opening Google Sheets
 
+UI highlights:
+
+- **Glassmorphism effects** with glowing boxed UI
+- **Responsive layout** for desktop/mobile
+- **Search + filters** across sheet data
+
 ### Setup for GitHub Pages
+
 1. Go to your repo → **Settings → Pages**
-2. Set **Source** to `Deploy from a branch`, branch = `main`, folder = `/docs`
+2. Set **Source** to **GitHub Actions** (recommended)
 3. Open `https://net2t.github.io/DD-Msg-Bot/`
-4. Click **⚙️ Config** and enter:
-   - Your **Google Sheets API Key** (create at [Google Cloud Console](https://console.cloud.google.com/apis/credentials))
-   - Your **Sheet ID** (from the URL of your Google Sheet)
 
-> ⚠️ The API key is stored only in `localStorage`. Create a **restricted key** (Sheets API, referer limited to your Pages URL).
+Notes:
 
----
-
-## 🖥️ Streamlit Dashboard (Local)
-
-Run a full dashboard locally with run buttons:
-
-```bash
-pip install -r requirements.txt
-streamlit run streamlit_app.py
-```
-
-Pages:
-- **Home** — quick-run buttons (MSG / POST / INBOX / Setup) + sheet status
-- **MsgList** — add/edit targets with inline editor → save back to Sheets
-- **PostQueue** — manage post queue with filters
-- **Inbox & Activity** — view inbox conversations, fill MY_REPLY, see activity + conversation logs
-- **MsgHistory** — read-only history of all sent messages
+- The dashboard loads data via Google Sheets `gviz` endpoints, so the sheet must be accessible to the browser.
+- If your sheet is private, you will need an authenticated proxy (not included).
 
 ---
 
 ## File Structure
 
-```
+```text
 damadam-bot/
 ├── main.py                  # All bot logic (MSG, POST, INBOX, SETUP, LOGS)
-├── streamlit_app.py         # Local Streamlit dashboard entry point
-├── pages/
-│   ├── 1_MsgList.py         # Streamlit page - targets
-│   ├── 2_PostQueue.py       # Streamlit page - post queue
-│   ├── 3_InboxActivity.py   # Streamlit page - inbox, activity, conv log
-│   └── 4_MsgHistory.py      # Streamlit page - history
 ├── docs/
 │   └── index.html           # GitHub Pages dashboard (full SPA)
 ├── requirements.txt
@@ -101,6 +85,7 @@ See `.env.sample` for all options.
 ## Usage
 
 ### Interactive (local)
+
 ```bash
 python main.py
 ```
@@ -117,6 +102,7 @@ Interactive menu labels:
 - **Setup Sheets**
 
 ### CLI
+
 ```bash
 python main.py --mode msg    --no-menu --max-profiles 20
 python main.py --mode post   --no-menu
@@ -137,18 +123,11 @@ Notes:
 - **Activity feed pagination**: Activity fetch supports pagination (`/inbox/activity/?page=2`, etc.). Inbox mode fetches up to **60** latest activity items across up to **5** pages and logs them to the `Logs` sheet.
 - **Clean activity logs**: Activity text is stored in `Logs.details` as multi-line text with UI noise removed (no `►` or `REMOVE`).
 
-### Streamlit Dashboard
-```bash
-streamlit run streamlit_app.py
-```
-
 ---
 
-## GitHub Actions
+## Dashboard README (Merged)
 
-Trigger via **Actions → DamaDam Dashboard → Run workflow**.
-
-Required secrets: `DD_LOGIN_EMAIL`, `DD_LOGIN_PASS`, `DD_SHEET_ID`, `GOOGLE_CREDENTIALS_JSON`
+This README also includes the dashboard documentation that previously lived in `README_DASHBOARD.md`.
 
 ---
 
@@ -157,12 +136,11 @@ Required secrets: `DD_LOGIN_EMAIL`, `DD_LOGIN_PASS`, `DD_SHEET_ID`, `GOOGLE_CRED
 | Sheet | Purpose |
 |-------|---------|
 | MsgList | Targets for MSG mode. STATUS=pending to queue |
+| MsgQueue | Message queue/history (depending on your usage) |
 | PostQueue | Posts to publish. STATUS=pending, TYPE=image/text |
-| Inbox | Inbox conversations. Fill MY_REPLY, bot sends on next inbox run |
-| MsgHistory | Log of all sent messages |
-| PostHistory | Log of all published posts |
-| Logs | Activity log from all modes |
-| ConversationLog | Full conversation history |
+| PostQueueLog | Log of all published posts |
+| InboxQueue | Inbox conversations. Fill MY_REPLY, bot sends on next inbox run |
+| MasterLog | Activity log from all modes |
 
 ---
 

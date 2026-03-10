@@ -3928,14 +3928,14 @@ def run_populate_mode(args):
         col_status = find_col("STATUS", "STATU")
         col_title = find_col("TITLE", "TITLE_EN", "TITLE EN", "TITLE_ENG")
         col_title_ur = find_col("TITLE_UR", "TITLE UR", "CAPTION")
-        col_image_path = find_col("IMAGE_PATH", "IMG_LINK", "IMAGE", "IMAGE_URL")
+        col_image_path = find_col("IMAGE_PATH", "IMG_LINK", "IMGLINK", "IMGLink", "IMAGE", "IMAGE_URL")
         col_type = find_col("TYPE")
         col_timestamp = find_col("TIMESTAMP", "TIME")
         col_notes = find_col("NOTES", "NOTE")
         col_signature = find_col("SIGNATURE")
 
         if col_image_path is None or col_title is None:
-            logger.warning("PostQueue needs IMAGE_PATH and TITLE columns to populate.")
+            logger.warning("PostQueue needs IMGLink/IMAGE_PATH and TITLE columns to populate.")
             return
 
         # ── Collect ALL existing image URLs AND source listing URLs from sheet ──

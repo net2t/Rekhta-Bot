@@ -4,6 +4,4 @@ google-auth-oauthlib>=1.0.0
 selenium==4.27.1
 python-dotenv>=1.0.0
 rich>=13.0.0
-streamlit>=1.35.0
-pandas>=2.0.0
-plotly>=6.0.0
+

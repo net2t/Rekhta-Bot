@@ -8,11 +8,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg:        #f0f4ff;
-      --surface:   #ffffff;
-      --card:      #ffffff;
-      --border:    #dde4f8;
-      --border2:   #b8c6f0;
+      --bg:        radial-gradient(1200px 800px at 10% 10%, rgba(124,58,237,.25) 0%, rgba(37,99,235,.18) 30%, rgba(2,132,199,.10) 55%, rgba(240,244,255,1) 90%);
+      --surface:   rgba(255,255,255,.78);
+      --card:      rgba(255,255,255,.9);
+      --border:    rgba(221,228,248,.9);
+      --border2:   rgba(184,198,240,.95);
 
       --blue:      #2563eb;
       --blue-l:    #eff4ff;
@@ -48,6 +48,18 @@
       color: var(--text);
       font-family: var(--ui);
       min-height: 100vh;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(800px 500px at 80% 20%, rgba(236,72,153,.12), transparent 55%),
+        radial-gradient(700px 500px at 20% 75%, rgba(79,70,229,.14), transparent 60%);
+      opacity: 1;
+      z-index: -1;
     }
 
     /* ── TOP BAR ── */
@@ -111,6 +123,7 @@
       background: var(--surface); border-bottom: 2px solid var(--border);
       padding: 0 24px; display: flex; gap: 0; overflow-x: auto;
       box-shadow: 0 2px 8px rgba(0,0,0,.06);
+      backdrop-filter: blur(14px);
     }
     .nav-tab {
       padding: 13px 20px; font-weight: 700; font-size: 13px; letter-spacing: .3px;
@@ -216,6 +229,7 @@
       transition: all .18s;
       box-shadow: 0 1px 4px rgba(0,0,0,.06);
       position: relative; overflow: hidden;
+      backdrop-filter: blur(10px);
     }
     .profile-card::before {
       content: '';
@@ -224,7 +238,7 @@
     }
     .profile-card:hover {
       border-color: var(--blue);
-      box-shadow: 0 6px 20px rgba(37,99,235,.14);
+      box-shadow: 0 10px 32px rgba(37,99,235,.18), 0 0 0 1px rgba(37,99,235,.10);
       transform: translateY(-2px);
     }
 
@@ -276,6 +290,7 @@
       overflow-x: auto; border-radius: var(--radius);
       border: 1.5px solid var(--border); background: var(--surface);
       box-shadow: 0 1px 4px rgba(0,0,0,.06);
+      backdrop-filter: blur(14px);
     }
     table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 500px; }
     thead { background: linear-gradient(135deg, #eff4ff 0%, #f0fdfa 100%); }

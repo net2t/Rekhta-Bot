@@ -253,17 +253,19 @@ def roman_to_urdu(roman_text: str, poet_name: str = "", logger=None) -> str:
 
     The returned caption is formatted as:
         [Urdu lines]
-        ─
         از [Poet Name]
         [Signature from Config]
 
     Args:
         roman_text: Roman Urdu text (e.g. from Rekhta's data-text attribute)
-        poet_name:  Poet name in English (will be transliterated to Urdu)
+        poet_name:  Poet name in English (will be appended after conversion)
         logger:     Optional Logger for debug output
 
     Returns:
-        Formatted Urdu caption string, or empty string on failure.
+        Formatted Urdu caption string, or Roman text fallback on failure.
+
+    Requires:
+        ANTHROPIC_API_KEY environment variable must be set.
     """
     if not roman_text:
         return ""
@@ -275,6 +277,13 @@ def roman_to_urdu(roman_text: str, poet_name: str = "", logger=None) -> str:
     try:
         import json
         import urllib.request as req
+
+        # Read API key from environment — must be set as ANTHROPIC_API_KEY
+        api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+        if not api_key:
+            if logger:
+                logger.warning("ANTHROPIC_API_KEY not set — skipping Urdu conversion, using Roman text as fallback")
+            raise ValueError("ANTHROPIC_API_KEY not set")
 
         # Build the prompt for Claude
         prompt = (
@@ -290,10 +299,15 @@ def roman_to_urdu(roman_text: str, poet_name: str = "", logger=None) -> str:
             "messages": [{"role": "user", "content": prompt}]
         }).encode("utf-8")
 
+        # Pass the API key in the Authorization header (Anthropic uses x-api-key)
         api_req = req.Request(
             "https://api.anthropic.com/v1/messages",
             data=payload,
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+            },
             method="POST"
         )
 

@@ -10,10 +10,6 @@ name: DamaDam Dashboard
         required: false
         type: string
         default: ""
-      dry_run:
-        required: false
-        type: boolean
-        default: false
       headless:
         required: false
         type: boolean
@@ -31,6 +27,8 @@ name: DamaDam Dashboard
         required: true
       GOOGLE_CREDENTIALS_JSON:
         required: true
+      ANTHROPIC_API_KEY:
+        required: false
 
   workflow_dispatch:
     inputs:
@@ -43,6 +41,8 @@ name: DamaDam Dashboard
           - msg
           - post
           - rekhta
+          - inbox
+          - activity
           - logs
           - setup
       max_items:
@@ -50,11 +50,6 @@ name: DamaDam Dashboard
         type: string
         required: false
         default: ""
-      dry_run:
-        description: "--dry-run (simulate, no posting)"
-        type: boolean
-        required: true
-        default: false
       headless:
         description: "Headless browser"
         type: boolean
@@ -111,21 +106,19 @@ jobs:
 
       - name: Run Bot
         env:
-          DD_LOGIN_EMAIL: ${{ secrets.DD_LOGIN_EMAIL }}
-          DD_LOGIN_PASS:  ${{ secrets.DD_LOGIN_PASS }}
-          DD_SHEET_ID:    ${{ secrets.DD_SHEET_ID }}
+          DD_LOGIN_EMAIL:       ${{ secrets.DD_LOGIN_EMAIL }}
+          DD_LOGIN_PASS:        ${{ secrets.DD_LOGIN_PASS }}
+          DD_SHEET_ID:          ${{ secrets.DD_SHEET_ID }}
           GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
-          DD_HEADLESS:    "${{ inputs.headless && '1' || '0' }}"
-          DD_DEBUG:       "${{ inputs.debug && '1' || '0' }}"
+          ANTHROPIC_API_KEY:    ${{ secrets.ANTHROPIC_API_KEY }}
+          DD_HEADLESS:          "${{ inputs.headless && '1' || '0' }}"
+          DD_DEBUG:             "${{ inputs.debug && '1' || '0' }}"
         run: |
           set -euo pipefail
           MODE="${{ inputs.mode }}"
           ARGS=("$MODE")
           if [ -n "${{ inputs.max_items }}" ]; then
             ARGS+=("--max" "${{ inputs.max_items }}")
-          fi
-          if [ "${{ inputs.dry_run }}" = "true" ]; then
-            ARGS+=("--dry-run")
           fi
           if [ "${{ inputs.debug }}" = "true" ]; then
             ARGS+=("--debug")

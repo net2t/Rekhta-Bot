@@ -8,16 +8,6 @@ name: Posting Bot
         type: string
         required: false
         default: ""
-      dry_run:
-        description: "--dry-run"
-        type: boolean
-        required: true
-        default: false
-      headless:
-        description: "Headless browser"
-        type: boolean
-        required: true
-        default: true
       debug:
         description: "Debug logging"
         type: boolean
@@ -32,7 +22,6 @@ jobs:
     with:
       mode: post
       max_items: ${{ github.event.inputs.max_items || '' }}
-      dry_run: ${{ github.event.inputs.dry_run == 'true' }}
-      headless: ${{ github.event.inputs.headless != 'false' }}
+      headless: true
       debug: ${{ github.event.inputs.debug == 'true' }}
     secrets: inherit

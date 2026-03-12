@@ -1,41 +1,21 @@
-name: Inbox Mails - Check Inbox
+name: Inbox Bot
 
 "on":
   workflow_dispatch:
     inputs:
-      max_profiles:
-        description: "How many conversations to process (--max-profiles). Empty = all"
-        type: string
-        required: false
-        default: ""
-      dry_run:
-        description: "--dry-run"
-        type: boolean
-        required: true
-        default: false
-      headless:
-        description: "Headless browser"
-        type: boolean
-        required: true
-        default: true
       debug:
         description: "Debug logging"
         type: boolean
         required: true
         default: false
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "*/30 * * * *"
 
 jobs:
   run:
     uses: ./.github/workflows/dashboard.yml
     with:
       mode: inbox
-      max_profiles: ${{ github.event.inputs.max_profiles || '' }}
-      dry_run: ${{ github.event.inputs.dry_run == true }}
-      populate_img_links: false
-      populate_limit: ""
-      populate_write: false
-      headless: ${{ github.event.inputs.headless != false }}
-      debug: ${{ github.event.inputs.debug == true }}
+      headless: true
+      debug: ${{ github.event.inputs.debug == 'true' }}
     secrets: inherit

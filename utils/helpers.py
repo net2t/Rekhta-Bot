@@ -245,32 +245,44 @@ def is_share_or_denied_url(url: str) -> bool:
     ])
 
 
-# ── Urdu Transliteration via Claude API ───────────────────────────────────────
+# ── Urdu Transliteration via Gemini API ───────────────────────────────────────
+#
+#  Why Gemini instead of Google Translate?
+#  Google Translate treats Roman Urdu as Hindi and produces wrong script.
+#  Gemini understands the Roman Urdu romanisation system and produces
+#  correct Nastaliq Urdu with proper word boundaries.
+#
+#  Free tier: Gemini 2.0 Flash — 15 requests/min, 1500/day — more than enough.
+#  Requires: GEMINI_API_KEY environment variable (GitHub Secret).
+#  Get a free key at: https://aistudio.google.com/apikey
 
 def roman_to_urdu(roman_text: str, poet_name: str = "", logger=None) -> str:
     """
-    Convert Roman Urdu poetry text to Urdu script using the Claude API.
+    Convert Roman Urdu poetry text to Urdu script using the Gemini API.
 
     The returned caption is formatted as:
-        [Urdu lines]
+        [Urdu script lines]
         از [Poet Name]
-        [Signature from Config]
+        [Signature from Config.POST_SIGNATURE]
 
     Args:
-        roman_text: Roman Urdu text (e.g. from Rekhta's data-text attribute)
-        poet_name:  Poet name in English (will be appended after conversion)
-        logger:     Optional Logger for debug output
+        roman_text: Roman Urdu text scraped from Rekhta
+                    e.g. "kabhii KHirad kabhii diivaangii ne luuT liyaa"
+        poet_name:  Poet name in English (appended after the Urdu lines)
+        logger:     Optional Logger instance for debug/warning messages
 
     Returns:
-        Formatted Urdu caption string, or Roman text fallback on failure.
+        Formatted Urdu caption string ready to use as a post body.
+        On any failure, returns the original Roman text as a safe fallback
+        (so the row still gets added to the sheet even if conversion fails).
 
     Requires:
-        ANTHROPIC_API_KEY environment variable must be set.
+        GEMINI_API_KEY environment variable must be set.
     """
     if not roman_text:
         return ""
 
-    # Build the poet line for the caption
+    # -- Build the suffix lines (poet credit + signature) ---------------------
     poet_line = f"\nاز {poet_name}" if poet_name else ""
     signature = f"\n{Config.POST_SIGNATURE}" if Config.POST_SIGNATURE else ""
 
@@ -278,62 +290,86 @@ def roman_to_urdu(roman_text: str, poet_name: str = "", logger=None) -> str:
         import json
         import urllib.request as req
 
-        # Read API key from environment — must be set as ANTHROPIC_API_KEY
-        api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+        # Read Gemini API key from environment
+        api_key = os.getenv("GEMINI_API_KEY", "").strip()
         if not api_key:
             if logger:
-                logger.warning("ANTHROPIC_API_KEY not set — skipping Urdu conversion, using Roman text as fallback")
-            raise ValueError("ANTHROPIC_API_KEY not set")
+                logger.warning(
+                    "GEMINI_API_KEY not set — storing Roman text as fallback. "
+                    "Add the key as a GitHub Secret to enable Urdu conversion."
+                )
+            raise ValueError("GEMINI_API_KEY not set")
 
-        # Build the prompt for Claude
+        # -- Build the Gemini prompt -----------------------------------------
+        # We use a very specific instruction to prevent Gemini from adding
+        # any explanation, Roman text, or extra formatting.
         prompt = (
-            "You are an Urdu script converter. Convert the following Roman Urdu poetry lines "
-            "into proper Urdu script (Nastaliq). Return ONLY the Urdu script lines, "
-            "one line per line, with no extra commentary, no English, no Roman text.\n\n"
-            f"Roman Urdu:\n{roman_text.strip()}"
+            "You are an expert Urdu calligrapher and poet. "
+            "Convert the following Roman Urdu poetry lines into proper Urdu script (Nastaliq). "
+            "Rules:\n"
+            "1. Return ONLY the Urdu script lines — nothing else.\n"
+            "2. One output line per input line.\n"
+            "3. No English, no Roman text, no explanations, no quotes.\n"
+            "4. Preserve line breaks exactly.\n\n"
+            f"Roman Urdu to convert:\n{roman_text.strip()}"
+        )
+
+        # -- Gemini REST API call (gemini-2.0-flash — free tier) --------------
+        # Endpoint: POST /v1beta/models/{model}:generateContent?key={api_key}
+        api_url = (
+            f"https://generativelanguage.googleapis.com/v1beta/"
+            f"models/gemini-2.0-flash:generateContent?key={api_key}"
         )
 
         payload = json.dumps({
-            "model": "claude-sonnet-4-20250514",
-            "max_tokens": 300,
-            "messages": [{"role": "user", "content": prompt}]
+            "contents": [{
+                "parts": [{"text": prompt}]
+            }],
+            "generationConfig": {
+                "temperature":    0.1,   # Low temperature = more deterministic output
+                "maxOutputTokens": 300,
+            }
         }).encode("utf-8")
 
-        # Pass the API key in the Authorization header (Anthropic uses x-api-key)
         api_req = req.Request(
-            "https://api.anthropic.com/v1/messages",
+            api_url,
             data=payload,
-            headers={
-                "Content-Type": "application/json",
-                "x-api-key": api_key,
-                "anthropic-version": "2023-06-01",
-            },
+            headers={"Content-Type": "application/json"},
             method="POST"
         )
 
         with req.urlopen(api_req, timeout=20) as resp:
-            data  = json.loads(resp.read().decode("utf-8"))
-            urdu_lines = ""
-            for block in data.get("content", []):
-                if block.get("type") == "text":
-                    urdu_lines = block["text"].strip()
-                    break
+            data = json.loads(resp.read().decode("utf-8"))
+
+        # -- Extract the Urdu text from the response -------------------------
+        # Gemini response structure:
+        # data["candidates"][0]["content"]["parts"][0]["text"]
+        urdu_lines = ""
+        try:
+            urdu_lines = (
+                data["candidates"][0]["content"]["parts"][0]["text"]
+            ).strip()
+        except (KeyError, IndexError):
+            pass
 
         if not urdu_lines:
             if logger:
-                logger.warning("Claude API returned empty Urdu text")
-            return ""
+                logger.warning("Gemini returned empty response for Urdu conversion")
+            raise ValueError("Empty response from Gemini")
 
-        # Assemble final caption
+        # -- Assemble final caption ------------------------------------------
         caption = f"{urdu_lines}{poet_line}{signature}"
         if logger:
-            logger.debug(f"Urdu caption generated: {caption[:80]}...")
+            logger.debug(f"Urdu caption: {caption[:80]}...")
         return caption
 
     except Exception as e:
         if logger:
             logger.warning(f"Urdu conversion failed: {e}")
-        # Fallback: return Roman text with signature instead of crashing
+
+        # -- Safe fallback: store Roman text so the row is not lost ----------
+        # The row goes into PostQueue with Roman text instead of Urdu.
+        # You can manually fix it in the sheet later.
         fallback = roman_text.strip()
         if poet_name:
             fallback += f"\n- By {poet_name}"

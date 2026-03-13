@@ -1,0 +1,7 @@
+gspread>=5.8.0
+google-auth>=2.20.0
+google-auth-oauthlib>=1.0.0
+selenium==4.27.1
+python-dotenv>=1.0.0
+rich>=13.0.0
+

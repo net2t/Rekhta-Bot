@@ -1,0 +1,74 @@
+name: DamaDam Dashboard
+
+on: []
+
+concurrency:
+  group: damadam-${{ inputs.mode || github.event.inputs.mode || 'unknown' }}
+  cancel-in-progress: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Chrome
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+
+      - name: Verify Chrome
+        run: google-chrome --version
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Write Google credentials
+        env:
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+        run: |
+          python - <<'PY'
+          import os
+          data = os.getenv('GOOGLE_CREDENTIALS_JSON', '')
+          if not data:
+              raise SystemExit('Missing secret GOOGLE_CREDENTIALS_JSON')
+          with open('credentials.json', 'w', encoding='utf-8') as f:
+              f.write(data)
+          PY
+
+      - name: Run Bot
+        env:
+          DD_LOGIN_EMAIL:       ${{ secrets.DD_LOGIN_EMAIL }}
+          DD_LOGIN_PASS:        ${{ secrets.DD_LOGIN_PASS }}
+          DD_SHEET_ID:          ${{ secrets.DD_SHEET_ID }}
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          DD_HEADLESS:          "${{ inputs.headless && '1' || '0' }}"
+          DD_DEBUG:             "${{ inputs.debug && '1' || '0' }}"
+        run: |
+          set -euo pipefail
+          MODE="${{ inputs.mode }}"
+          ARGS=("$MODE")
+          if [ -n "${{ inputs.max_items }}" ]; then
+            ARGS+=("--max" "${{ inputs.max_items }}")
+          fi
+          if [ "${{ inputs.debug }}" = "true" ]; then
+            ARGS+=("--debug")
+          fi
+          echo "Running: python main.py ${ARGS[*]}"
+          python main.py "${ARGS[@]}"
+
+      - name: Upload Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ inputs.mode }}-${{ github.run_number }}
+          path: logs/*.log

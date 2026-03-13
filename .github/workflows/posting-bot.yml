@@ -1,0 +1,13 @@
+name: Posting Bot
+
+on: []
+
+jobs:
+  run:
+    uses: ./.github/workflows/dashboard.yml
+    with:
+      mode: post
+      max_items: ${{ github.event.inputs.max_items || '' }}
+      headless: true
+      debug: ${{ github.event.inputs.debug == 'true' }}
+    secrets: inherit

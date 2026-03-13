@@ -1,0 +1,13 @@
+name: Rekhta Bot
+
+on: []
+
+jobs:
+  run:
+    uses: ./.github/workflows/dashboard.yml
+    with:
+      mode: rekhta
+      max_items: ${{ github.event.inputs.max_items || '' }}
+      headless: true
+      debug: ${{ github.event.inputs.debug == 'true' }}
+    secrets: inherit

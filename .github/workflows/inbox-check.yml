@@ -1,0 +1,12 @@
+name: Inbox Bot
+
+on: []
+
+jobs:
+  run:
+    uses: ./.github/workflows/dashboard.yml
+    with:
+      mode: inbox
+      headless: true
+      debug: ${{ github.event.inputs.debug == 'true' }}
+    secrets: inherit

@@ -1,0 +1,36 @@
+# Exclude .windsurf folder
+.windsurf/*
+!.windsurf/workflows/
+!.windsurf/workflows/**
+.env
+.env copy*
+.env*copy*
+credentials.json
+*.pkl
+
+# Local binaries
+chromedriver.exe
+chromedriver*.exe
+
+# Logs
+logs/
+*.log
+
+# Local screenshots
+Screenshot *.png
+
+# Local reference repos
+Reference_GithubRepos/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

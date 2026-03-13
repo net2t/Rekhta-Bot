@@ -1,0 +1,17 @@
+name: Rekhta Mode
+
+on: []
+
+jobs:
+  run:
+    uses: ./.github/workflows/dashboard.yml
+    with:
+      mode: populate
+      max_profiles: ""
+      dry_run: ${{ github.event.inputs.dry_run == true }}
+      populate_img_links: false
+      populate_limit: ${{ github.event.inputs.populate_limit || '' }}
+      populate_write: ${{ github.event.inputs.populate_write != false }}
+      headless: ${{ github.event.inputs.headless != false }}
+      debug: ${{ github.event.inputs.debug == true }}
+    secrets: inherit

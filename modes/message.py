@@ -82,7 +82,8 @@ def run(driver, sheets: SheetsManager, logger: Logger,
     # (it only writes STATUS, NOTES, RESULT — never touches D/E/F/G)
     col_status = sheets.get_col(headers, "STATUS")
     col_notes  = sheets.get_col(headers, "NOTES")
-    col_result = sheets.get_col(headers, "RESULT", "RESULT URL", "RESULT_URL")
+    col_result   = sheets.get_col(headers, "RESULT", "RESULT URL", "RESULT_URL")
+    col_sent_msg = sheets.get_col(headers, "SENT_MSG")  # Resolved message — set by bot
 
     if not all([col_status, col_notes, col_result]):
         logger.error(f"MsgList is missing required columns. Found: {headers}")
@@ -162,11 +163,18 @@ def run(driver, sheets: SheetsManager, logger: Logger,
 
         if result["status"] == "Posted":
             logger.ok(f"Message sent to {nick} at {result['url']}")
-            sheets.update_row_cells(ws, row_num, {
+            # Build update dict — include SENT_MSG only if column exists
+            row_updates = {
                 col_status: "Done",
                 col_notes:  f"Posted @ {pkt_stamp()}",
                 col_result: result["url"],
-            })
+            }
+            if col_sent_msg:
+                row_updates[col_sent_msg] = message_text  # Actual resolved message
+            sheets.update_row_cells(ws, row_num, row_updates)
+            # Write to MsgLog (full history per message sent)
+            _write_msg_log(sheets, nick, target["name"], message_text,
+                           result["url"], "Sent", "")
             sheets.log_action("MSG", "sent", nick, result["url"], "Done")
             stats["done"] += 1
 
@@ -177,6 +185,8 @@ def run(driver, sheets: SheetsManager, logger: Logger,
                 col_notes:  "Not Following",
                 col_result: result["url"],
             })
+            _write_msg_log(sheets, nick, target["name"], message_text,
+                           result["url"], "Failed", "Not Following")
             sheets.log_action("MSG", "failed", nick, result["url"], "Failed", "Not Following")
             stats["failed"] += 1
 
@@ -196,6 +206,8 @@ def run(driver, sheets: SheetsManager, logger: Logger,
                 col_notes:  result["status"][:80],
                 col_result: result.get("url", ""),
             })
+            _write_msg_log(sheets, nick, target["name"], message_text,
+                           result.get("url", ""), "Failed", result["status"][:80])
             sheets.log_action("MSG", "failed", nick, result.get("url",""), "Failed", result["status"])
             stats["failed"] += 1
 
@@ -476,3 +488,39 @@ def _process_template(template: str, profile: Dict) -> str:
     msg = re.sub(r",\s*,", ",", msg)
 
     return msg.strip()
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+#  MSG LOG WRITER
+#  Appends one row to MsgLog after every send attempt (success or failure).
+#  This gives you a full history of exactly what was sent to whom.
+# ════════════════════════════════════════════════════════════════════════════════
+
+def _write_msg_log(sheets: SheetsManager, nick: str, name: str,
+                   message: str, post_url: str,
+                   status: str, notes: str):
+    """
+    Append one row to the MsgLog sheet.
+
+    Args:
+        sheets:   SheetsManager instance
+        nick:     Target DamaDam username
+        name:     Display name (from NAME column)
+        message:  The RESOLVED message that was actually sent
+                  (placeholders already substituted)
+        post_url: URL of the post where message was sent
+        status:   Sent / Failed / Skipped
+        notes:    Error detail or empty string
+    """
+    ws = sheets.get_worksheet(Config.SHEET_MSG_LOG, headers=Config.MSG_LOG_COLS)
+    if not ws:
+        return
+    sheets.append_row(ws, [
+        pkt_stamp(),  # TIMESTAMP
+        nick,         # NICK
+        name,         # NAME
+        message,      # MESSAGE  ← actual sent text, not the template
+        post_url,     # POST_URL
+        status,       # STATUS
+        notes,        # NOTES
+    ])

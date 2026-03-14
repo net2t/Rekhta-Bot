@@ -120,10 +120,11 @@ class Config:
         "POSTS",      # E  Scraped post count  (read-only reference)
         "FOLLOWERS",  # F  Scraped followers   (read-only reference)
         "GENDER",     # G  Scraped gender      (read-only reference)
-        "MESSAGE",    # H  Message text — supports {{name}}, {{city}} placeholders
+        "MESSAGE",    # H  Template text — supports {{name}}, {{city}} placeholders
         "STATUS",     # I  Pending → Done / Skipped / Failed
         "NOTES",      # J  Set by bot
         "RESULT",     # K  URL of post where message was sent
+        "SENT_MSG",   # L  Actual resolved message that was sent (set by bot)
     ]
 
     # ── MsgLog — one row per message sent ─────────────────────────────────────

@@ -368,8 +368,8 @@ class SheetsManager:
         Append one row to the MasterLog sheet.
         Called after every significant action across all modes.
         """
-        ws = self.get_worksheet(Config.SHEET_MASTER_LOG,
-                                 headers=Config.MASTER_LOG_COLS)
+        ws = self.get_worksheet(Config.SHEET_LOGS,
+                                 headers=Config.LOGS_COLS)
         if not ws:
             return
         self.append_row(ws, [

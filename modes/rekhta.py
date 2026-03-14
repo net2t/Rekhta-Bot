@@ -55,12 +55,12 @@ def run(driver, sheets: SheetsManager, logger: Logger,
     logger.section("REKHTA MODE")
 
     # ── Get PostQueue sheet ───────────────────────────────────────────────────
-    ws = sheets.get_worksheet(Config.SHEET_POST_QUEUE, headers=Config.POST_QUEUE_COLS)
+    ws = sheets.get_worksheet(Config.SHEET_POST_QUE, headers=Config.POST_QUE_COLS)
     if not ws:
         logger.error("PostQueue sheet not found")
         return {}
 
-    headers    = [c for c in Config.POST_QUEUE_COLS]  # use canonical headers
+    headers    = [c for c in Config.POST_QUE_COLS]  # use canonical headers
     col_img    = sheets.get_col(headers, "IMG_LINK")
 
     # ── BATCH duplicate check — load all existing IMG_LINK values at once ────
@@ -167,14 +167,25 @@ def run(driver, sheets: SheetsManager, logger: Logger,
     # ── Filter duplicates and apply limit ────────────────────────────────────
     new_items: List[Dict] = []
     dup_count = 0
+    # Track roman_text seen in THIS run to catch same poem with different image variants
+    seen_texts: Set[str] = set()
 
     for item in scraped:
-        norm_url = _normalize_img_url(item["img_link"])
+        norm_url  = _normalize_img_url(item["img_link"])
+        norm_text = item["roman_text"].strip().lower()[:60]  # first 60 chars as key
+
+        # Skip if image URL already in sheet
         if norm_url in existing_img_links:
             dup_count += 1
             continue
+        # Skip if same poem text already added in this run (Rekhta shows same card multiple times)
+        if norm_text and norm_text in seen_texts:
+            dup_count += 1
+            continue
+
         new_items.append(item)
-        existing_img_links.add(norm_url)  # Mark as seen within this run
+        existing_img_links.add(norm_url)
+        seen_texts.add(norm_text)
         if max_items and len(new_items) >= max_items:
             break
 
@@ -199,7 +210,7 @@ def run(driver, sheets: SheetsManager, logger: Logger,
 
         title = item["roman_text"].strip()
 
-        # Build the row matching Config.POST_QUEUE_COLS order:
+        # Build the row matching Config.POST_QUE_COLS order:
         # STATUS, TYPE, TITLE, URDU, IMG_LINK, POET, POST_URL, ADDED, NOTES
         row_values = [
             "Pending",              # STATUS

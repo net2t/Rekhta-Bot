@@ -72,7 +72,7 @@ def run(driver, sheets: SheetsManager, logger: Logger,
     logger.section("POST MODE")
 
     # ── Load PostQueue sheet ──────────────────────────────────────────────────
-    ws = sheets.get_worksheet(Config.SHEET_POST_QUEUE, headers=Config.POST_QUEUE_COLS)
+    ws = sheets.get_worksheet(Config.SHEET_POST_QUE, headers=Config.POST_QUE_COLS)
     if not ws:
         logger.error("PostQueue sheet not found")
         return {}

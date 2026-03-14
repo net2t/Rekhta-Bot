@@ -64,7 +64,7 @@ def run(driver, sheets: SheetsManager, logger: Logger,
     logger.section("MESSAGE MODE")
 
     # ── Load MsgList sheet ────────────────────────────────────────────────────
-    ws = sheets.get_worksheet(Config.SHEET_MSG_LIST, headers=Config.MSG_LIST_COLS)
+    ws = sheets.get_worksheet(Config.SHEET_MSG_QUE, headers=Config.MSG_QUE_COLS)
     if not ws:
         logger.error("MsgList sheet not found or could not be created")
         return {}

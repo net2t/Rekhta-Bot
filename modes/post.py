@@ -26,6 +26,7 @@ import os
 import re
 import time
 import tempfile
+from datetime import datetime
 from typing import Optional, Dict, List, Set
 
 from selenium.webdriver.common.by import By
@@ -34,7 +35,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 
 from config import Config
-from utils.logger import Logger, pkt_stamp
+from utils.logger import Logger, pkt_stamp, PKT
 from utils.helpers import (
     download_image, sanitize_caption, sanitize_tags,
     strip_non_bmp, clean_post_url, is_share_or_denied_url

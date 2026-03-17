@@ -232,7 +232,17 @@ def _find_open_post(driver, nick: str, logger: Logger) -> Optional[str]:
 
     Returns the clean post URL or None.
     """
-    safe_nick = quote(str(nick).strip(), safe="+")
+    raw_nick = str(nick).strip()
+    # If the sheet contains a full profile URL, extract the nick part.
+    # Supports common patterns like:
+    #   https://damadam.pk/profile/public/<nick>/
+    #   https://damadam.pk/profile/<nick>/
+    if "http" in raw_nick.lower() and "damadam.pk" in raw_nick.lower():
+        m = re.search(r"/profile/(?:public/)?([^/]+)/?", raw_nick, flags=re.I)
+        if m:
+            raw_nick = m.group(1).strip()
+
+    safe_nick = quote(raw_nick, safe="+")
     max_pages  = max(1, Config.MAX_POST_PAGES)
 
     for page_num in range(1, max_pages + 1):
@@ -262,13 +272,14 @@ def _find_open_post(driver, nick: str, logger: Logger) -> Optional[str]:
             # Strategy 2: Collect ALL /comments/ hrefs from this profile page
             # without navigating away — then verify each one.
             candidate_urls = []
-            direct_links = driver.find_elements(
-                By.CSS_SELECTOR,
-                "a[href*='/comments/text/'], a[href*='/comments/image/']"
-            )
+            direct_links = driver.find_elements(By.CSS_SELECTOR, "a[href]")
             for link in direct_links:
-                href = link.get_attribute("href") or ""
-                if href:
+                href = (link.get_attribute("href") or "").strip()
+                if not href:
+                    continue
+                # DamaDam can use multiple URL patterns for posts; accept any link
+                # that looks like a post and normalize it.
+                if any(p in href for p in ("/comments/", "/content/")):
                     clean = clean_post_url(href)
                     if is_valid_post_url(clean) and clean not in candidate_urls:
                         candidate_urls.append(clean)
@@ -357,6 +368,8 @@ def _send_message(driver, post_url: str, message: str,
         for f in forms:
             try:
                 ta   = f.find_element(By.CSS_SELECTOR, _SEL_REPLY_TEXTAREA)
+                if not ta.is_displayed() or not ta.is_enabled():
+                    continue
                 form = f
                 textarea = ta
                 break
@@ -377,8 +390,15 @@ def _send_message(driver, post_url: str, message: str,
             try:
                 btns = form.find_elements(By.CSS_SELECTOR, sel)
                 if btns:
-                    submit_btn = btns[0]
-                    break
+                    for b in btns:
+                        try:
+                            if b.is_displayed() and b.is_enabled():
+                                submit_btn = b
+                                break
+                        except Exception:
+                            continue
+                    if submit_btn:
+                        break
             except Exception:
                 pass
 
@@ -392,13 +412,21 @@ def _send_message(driver, post_url: str, message: str,
 
         # ── TYPE MESSAGE (THE FIX) ───────────────────────────────────────────
         # Step 1: Scroll textarea into view and give it JS focus + clear
-        driver.execute_script(
-            "arguments[0].scrollIntoView({block:'center'});"
-            "arguments[0].focus();"
-            "arguments[0].value = '';",
-            textarea
-        )
-        time.sleep(0.4)
+        driver.execute_script("arguments[0].scrollIntoView({block:'center'});", textarea)
+        time.sleep(0.2)
+        try:
+            WebDriverWait(driver, 8).until(lambda d: textarea.is_displayed() and textarea.is_enabled())
+        except Exception:
+            pass
+        try:
+            driver.execute_script("arguments[0].focus();", textarea)
+        except Exception:
+            pass
+        try:
+            driver.execute_script("arguments[0].click();", textarea)
+        except Exception:
+            pass
+        time.sleep(0.3)
 
         # Step 2: clear() via Selenium then send_keys() — fires React keyboard events
         try:
@@ -406,7 +434,15 @@ def _send_message(driver, post_url: str, message: str,
         except Exception:
             pass
         time.sleep(0.2)
-        textarea.send_keys(safe_msg)
+        try:
+            textarea.send_keys(safe_msg)
+        except Exception:
+            try:
+                driver.execute_script("arguments[0].value='';", textarea)
+                driver.execute_script("arguments[0].focus();", textarea)
+                textarea.send_keys(safe_msg)
+            except Exception as e:
+                return {"status": f"Error: {str(e)[:50]}", "url": post_url}
         time.sleep(0.5)
 
         # Step 3: Verify the textarea actually contains the message

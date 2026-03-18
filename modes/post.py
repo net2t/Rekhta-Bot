@@ -231,6 +231,7 @@ def run(driver, sheets: SheetsManager, logger: Logger,
                 col_notes:    f"Posted @ {pkt_stamp()}",
             })
             sheets.log_action("POST", f"post_{post_type}", "", post_url, "Done")
+            _write_post_log(sheets, item, post_url, "Posted", "")
             posted_urls.add((img_link or "").lower())
             last_post_time = time.time()
             stats["posted"] += 1
@@ -293,6 +294,7 @@ def run(driver, sheets: SheetsManager, logger: Logger,
                 col_status: "Failed",
                 col_notes:  status[:80],
             })
+            _write_post_log(sheets, item, post_url, "Failed", status[:80])
             sheets.log_action("POST", f"post_{post_type}", "", post_url, "Failed", status)
             stats["failed"] += 1
             if stop_on_fail:
@@ -879,6 +881,29 @@ def _extract_error_message(driver) -> str:
             pass
     return "unknown — check logs/post_*_04_after_submit.html"
 
+
+
+def _write_post_log(sheets: SheetsManager, item: Dict,
+                    post_url: str, status: str, notes: str):
+    """
+    Append one row to PostLog sheet after every post attempt.
+    PostLog = full history of every post, successful or not.
+
+    Columns: TIMESTAMP | TYPE | POET | TITLE | POST_URL | IMG_LINK | STATUS | NOTES
+    """
+    ws = sheets.get_worksheet(Config.SHEET_POST_LOG, headers=Config.POST_LOG_COLS)
+    if not ws:
+        return
+    sheets.append_row(ws, [
+        pkt_stamp(),                        # TIMESTAMP
+        item.get("type", ""),               # TYPE
+        item.get("poet", ""),               # POET
+        (item.get("title") or "")[:80],     # TITLE
+        post_url,                           # POST_URL
+        item.get("img_link", ""),           # IMG_LINK
+        status,                             # STATUS
+        notes[:100] if notes else "",       # NOTES
+    ])
 
 def _build_caption(item: Dict) -> str:
     """

@@ -121,23 +121,49 @@ def run(driver, sheets: SheetsManager, logger: Logger,
     for page_index in range(start_page, total_pages + 1):
         page_url = _rekhta_page_url(page_index)
         logger.info(f"Loading page {page_index}: {page_url}")
-        try:
-            driver.get(page_url)
-        except TimeoutException:
+        cards = []
+        page_loaded = False
+        for attempt in range(1, 3):
             try:
-                driver.execute_script("window.stop();")
+                driver.get(page_url)
+            except TimeoutException:
+                try:
+                    driver.execute_script("window.stop();")
+                except Exception:
+                    pass
+                logger.warning(f"Page load timeout on pageIndex={page_index} (attempt {attempt}); retrying")
+                continue
+
+            try:
+                WebDriverWait(driver, 10).until(
+                    EC.any_of(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "div.shyriImgBox")),
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "body")),
+                    )
+                )
             except Exception:
                 pass
-            logger.warning(f"Page load timeout on pageIndex={page_index}; skipping")
-            continue
 
-        time.sleep(2.0)
+            # Give a short settle time for lazy content
+            time.sleep(0.6)
+            cards = driver.find_elements(By.CSS_SELECTOR, "div.shyriImgBox")
+            if cards:
+                page_loaded = True
+                break
 
-        cards = driver.find_elements(By.CSS_SELECTOR, "div.shyriImgBox")
+            # If no cards, try one more short wait and retry once.
+            time.sleep(1.5)
+            cards = driver.find_elements(By.CSS_SELECTOR, "div.shyriImgBox")
+            if cards:
+                page_loaded = True
+                break
+
+            logger.debug(f"No cards detected on attempt {attempt} for pageIndex={page_index}")
+
         logger.debug(f"Cards found on pageIndex={page_index}: {len(cards)}")
 
         if not cards:
-            logger.debug(f"No cards on pageIndex={page_index}; may be end of content")
+            logger.debug(f"No cards on pageIndex={page_index}; may be end of content or slow load")
             no_new_pages += 1
             if no_new_pages >= _MAX_NO_NEW_PAGES:
                 logger.info(f"No content on {no_new_pages} consecutive pages — stopping")
@@ -195,8 +221,8 @@ def run(driver, sheets: SheetsManager, logger: Logger,
                 logger.info(f"Reached max_items={max_items}; stopping")
                 break
 
-        # ── Update cursor after each page with content ────────────────────────
-        if cards:
+        # ── Update cursor after each page with confirmed content ─────────────
+        if cards and page_loaded:
             last_good_page = page_index
             sheets.set_scrape_state(_STATE_KEY_LAST_PAGE, str(page_index))
 

@@ -387,7 +387,7 @@ class SheetsManager:
         Append one row to the RunLog sheet summarising a complete bot run.
 
         Args:
-            mode:       Mode name (rekhta / msg / post / inbox / setup)
+            mode:       Mode name (rekhta / post)
             stats:      Dict with any of: added, posted, sent, failed, skipped
             duration_s: Run duration in seconds
             notes:      Optional extra info or error summary

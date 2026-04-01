@@ -9,3 +9,4 @@ google-auth-oauthlib==1.2.1
 python-dotenv==1.1.0
 rich==13.9.4
 google-api-python-client==2.164.0
+urllib3==2.3.0

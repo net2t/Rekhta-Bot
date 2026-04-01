@@ -75,7 +75,7 @@ class LoginManager:
             self.driver.refresh()
             time.sleep(3)
             # If still on login page → cookies expired
-            return "login" not in self.driver.current_url.lower()
+            return "login" not in (self.driver.current_url or "").lower()
         except Exception as e:
             self.log.debug(f"Cookie login error: {e}")
             return False
@@ -117,7 +117,8 @@ class LoginManager:
             time.sleep(4)
 
             # -- Check result --------------------------------------------------
-            if "login" not in self.driver.current_url.lower():
+            cur = (self.driver.current_url or "").lower()
+            if "login" not in cur:
                 # Save cookies for next run (skip in CI)
                 if not Config.IS_CI:
                     save_cookies(self.driver, self.log)

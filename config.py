@@ -85,14 +85,10 @@ class Config:
     # ════════════════════════════════════════════════════════════════════════════
 
     # Queue sheets  — bot reads from these to know what to do
-    SHEET_MSG_QUE   = "MsgQue"     # Message targets queue
     SHEET_POST_QUE  = "PostQue"    # Post content queue (populated by Rekhta mode)
-    SHEET_INBOX_QUE = "InboxQue"   # Inbox conversations + pending replies
 
     # Log sheets    — bot writes results here after each action
-    SHEET_MSG_LOG   = "MsgLog"     # Every message sent (history per target)
     SHEET_POST_LOG  = "PostLog"    # Every post created (history per post)
-    SHEET_INBOX_LOG = "InboxLog"   # Every inbox conversation + activity entry
 
     # Master log    — one row per any action across all modes
     SHEET_LOGS      = "Logs"
@@ -108,42 +104,11 @@ class Config:
 
     # ── Keep old names as aliases so existing code doesn't break ──────────────
     SHEET_MASTER_LOG = SHEET_LOGS          # backwards compat alias
-    SHEET_MSG_LIST   = SHEET_MSG_QUE       # backwards compat alias
     SHEET_POST_QUEUE = SHEET_POST_QUE      # backwards compat alias
-    SHEET_INBOX      = SHEET_INBOX_QUE     # backwards compat alias
 
     # ════════════════════════════════════════════════════════════════════════════
     #  COLUMN DEFINITIONS — single source of truth for every sheet
     # ════════════════════════════════════════════════════════════════════════════
-
-    # ── MsgQue — message targets queue ────────────────────────────────────────
-    #  You fill this in. Bot reads it, sends messages, updates STATUS/NOTES/RESULT.
-    MSG_QUE_COLS = [
-        "MODE",       # A  Nick / URL
-        "NAME",       # B  Display name (your reference)
-        "NICK",       # C  DamaDam username or profile URL
-        "CITY",       # D  Scraped city       (read-only reference)
-        "POSTS",      # E  Scraped post count  (read-only reference)
-        "FOLLOWERS",  # F  Scraped followers   (read-only reference)
-        "GENDER",     # G  Scraped gender      (read-only reference)
-        "MESSAGE",    # H  Template text — supports {{name}}, {{city}} placeholders
-        "STATUS",     # I  Pending → Done / Skipped / Failed
-        "NOTES",      # J  Set by bot
-        "RESULT",     # K  URL of post where message was sent
-        "SENT_MSG",   # L  Actual resolved message that was sent (set by bot)
-    ]
-
-    # ── MsgLog — one row per message sent ─────────────────────────────────────
-    #  Bot appends here after every successful or failed message attempt.
-    MSG_LOG_COLS = [
-        "TIMESTAMP",  # A  PKT timestamp
-        "NICK",       # B  Target username
-        "NAME",       # C  Display name
-        "MESSAGE",    # D  Message text that was sent
-        "POST_URL",   # E  URL of post the message was sent on
-        "STATUS",     # F  Sent / Failed / Skipped
-        "NOTES",      # G  Error or extra detail
-    ]
 
     # ── PostQue — post content queue ──────────────────────────────────────────
     #  Populated by Rekhta mode. Bot reads it and creates posts.
@@ -172,33 +137,6 @@ class Config:
         "NOTES",      # H  Error or extra detail
     ]
 
-    # ── InboxQue — inbox conversations + reply queue ──────────────────────────
-    #  Bot syncs new conversations here. You fill MY_REPLY. Bot sends it.
-    INBOX_QUE_COLS = [
-        "TID",        # A  DamaDam user ID (tid from button value — never changes)
-        "NICK",       # B  DamaDam username
-        "NAME",       # C  Display name
-        "TYPE",       # D  1ON1 / POST / MEHFIL / UNKNOWN
-        "LAST_MSG",   # E  Last message received
-        "MY_REPLY",   # F  Your reply text — bot sends this when STATUS=Pending
-        "STATUS",     # G  Pending → Done / Failed / NoReply
-        "UPDATED",    # H  Timestamp of last sync
-        "NOTES",      # I  Set by bot
-    ]
-
-    # ── InboxLog — full inbox + activity history ───────────────────────────────
-    #  One row per inbox event or activity item. Complete history.
-    INBOX_LOG_COLS = [
-        "TIMESTAMP",  # A  PKT timestamp
-        "TID",        # B  DamaDam user ID
-        "NICK",       # C  Username
-        "TYPE",       # D  1ON1 / POST / MEHFIL / ACTIVITY
-        "DIRECTION",  # E  IN / OUT / ACTIVITY
-        "MESSAGE",    # F  Message text or activity description
-        "CONV_URL",   # G  Link to the conversation or post
-        "STATUS",     # H  Received / Sent / Failed / Logged
-    ]
-
     # ── Logs — master log (one row per any bot action) ─────────────────────────
     LOGS_COLS = [
         "TIMESTAMP",  # A
@@ -213,11 +151,11 @@ class Config:
     # ── RunLog — one row per complete bot run ─────────────────────────────────
     RUN_LOG_COLS = [
         "TIMESTAMP",  # A  When the run started (PKT)
-        "MODE",       # B  Which mode was run (rekhta/msg/post/inbox/setup)
+        "MODE",       # B  Which mode was run (rekhta/post)
         "STATUS",     # C  Done / Failed / Stopped
         "ADDED",      # D  Items added    (Rekhta: new rows in PostQue)
         "POSTED",     # E  Posts created  (Post mode)
-        "SENT",       # F  Messages sent  (Msg / Inbox reply)
+        "SENT",       # F  Messages sent  (legacy field)
         "FAILED",     # G  Failures
         "SKIPPED",    # H  Skipped rows
         "DURATION",   # I  How long the run took (seconds)
@@ -232,21 +170,15 @@ class Config:
     ]
 
     # ── Backwards compat aliases for column lists ──────────────────────────────
-    MSG_LIST_COLS   = MSG_QUE_COLS
     POST_QUEUE_COLS = POST_QUE_COLS
     MASTER_LOG_COLS = LOGS_COLS
-    INBOX_COLS      = INBOX_QUE_COLS
 
     # ════════════════════════════════════════════════════════════════════════════
     #  All sheets in setup order
     # ════════════════════════════════════════════════════════════════════════════
     ALL_SHEETS = {
-        SHEET_MSG_QUE:      MSG_QUE_COLS,
         SHEET_POST_QUE:     POST_QUE_COLS,
-        SHEET_INBOX_QUE:    INBOX_QUE_COLS,
-        SHEET_MSG_LOG:      MSG_LOG_COLS,
         SHEET_POST_LOG:     POST_LOG_COLS,
-        SHEET_INBOX_LOG:    INBOX_LOG_COLS,
         SHEET_LOGS:         LOGS_COLS,
         SHEET_RUN_LOG:      RUN_LOG_COLS,
         SHEET_SCRAPE_STATE: SCRAPE_STATE_COLS,

@@ -152,16 +152,51 @@ To trigger manually:
 4. Choose your desired quantity
 5. Click **"Run workflow"** to start
 
-### 📝 Required Secrets
+### 📝 Required GitHub Secrets
 
-Create these secrets in your GitHub repository settings:
+Create these secrets in your GitHub repository: **Settings → Secrets and variables → Actions**
 
-| Secret | Description | Required |
-| :----- | :------------- | :------- |
-| `DD_LOGIN_EMAIL` | DamaDam username | ✅ |
-| `DD_LOGIN_PASS` | DamaDam password | ✅ |
-| `DD_SHEET_ID` | Google Sheets ID | ✅ |
-| `GOOGLE_CREDENTIALS_JSON` | Service account JSON | ✅ |
+| Secret | Value | Description | Required |
+| :----- | :----- | :------------- | :------- |
+| `DD_LOGIN_EMAIL` | Your DamaDam username | DamaDam login email | ✅ |
+| `DD_LOGIN_PASS` | Your DamaDam password | DamaDam login password | ✅ |
+| `DD_SHEET_ID` | Your Google Sheets ID | The ID from your sheet URL | ✅ |
+| `GOOGLE_CREDENTIALS_JSON` | Your service account JSON | Full JSON content as one line | ✅ |
+
+### 🔑 How to Get the Secret Values:
+
+**1. DamaDam Credentials:**
+```
+DD_LOGIN_EMAIL: your-email@example.com
+DD_LOGIN_PASS: your-password
+```
+
+**2. Google Sheets ID:**
+From your Google Sheets URL: `https://docs.google.com/spreadsheets/d/`**`SHEET_ID_HERE`**`/edit`
+Copy the `SHEET_ID_HERE` part.
+
+**3. Google Credentials JSON:**
+- Go to Google Cloud Console → Service Accounts
+- Create a service account or use existing one
+- Download the JSON file
+- Copy the ENTIRE JSON content and paste as a single line in the secret value
+- Format: `{"type":"service_account","project_id":"...",...}`
+
+### 📋 Step-by-Step Secret Setup:
+
+1. Go to your repository → **Settings** → **Secrets and variables** → **Actions**
+2. Click **"New repository secret"**
+3. Add each secret from the table above
+4. For `GOOGLE_CREDENTIALS_JSON`: 
+   - Open your downloaded JSON file
+   - Copy everything (including all braces and quotes)
+   - Paste as one continuous line (no line breaks)
+
+### 🤖 Auto-Detection Logic:
+
+- **Local runs**: Uses `credentials.json` file automatically
+- **GitHub Actions**: Uses `GOOGLE_CREDENTIALS_JSON` secret automatically
+- No configuration needed - the bot detects the environment automatically
 
 ### 🚀 Enabling Workflows
 

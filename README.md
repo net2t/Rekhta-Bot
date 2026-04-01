@@ -8,14 +8,14 @@
 **A sleek, modular automation bot for DamaDam.pk**  
 Specialized in Rekhta poetry scraping and automated posting with Google Sheets integration
 
-[🚀 Quick Start](#-quick-start-local) • [📖 Documentation](#-documentation) • [⚙️ Configuration](#-configuration) • [🔧 GitHub Actions](#github-actions)
+[🚀 Quick Start](#quick-start-local) • [📖 Documentation](#documentation) • [⚙️ Configuration](#configuration) • [🔧 GitHub Actions](#github-actions)
 
 ---
 
 ## ✨ Features
 
 | 🎨 **Rekhta Mode** | 📝 **Post Mode** |
-|------------------|-----------------|
+| :---------------- | :--------------- |
 | Scrape beautiful poetry image cards from rekhta.org | Create automated image/text posts from queue |
 | Auto-populate PostQueue sheet with metadata | Smart cooldown and duplicate detection |
 | Support for Roman Urdu and Urdu translations | Rate limit handling with automatic retries |
@@ -89,6 +89,7 @@ python main.py
 ## 🎮 Usage
 
 ### Interactive Menu
+
 Running without arguments shows a beautiful numbered menu:
 
 ```bash
@@ -96,6 +97,7 @@ python main.py
 ```
 
 ### CLI Commands
+
 ```bash
 python main.py <mode> [options]
 ```
@@ -103,14 +105,14 @@ python main.py <mode> [options]
 #### Available Modes
 
 | Mode | Description | Example |
-|------|-------------|---------|
+| :--- | :------------- | :------- |
 | `rekhta` | Scrape poetry from Rekhta | `python main.py rekhta --max 30` |
 | `post` | Create posts from queue | `python main.py post --max 5` |
 
 #### Options
 
 | Flag | Description |
-|------|-------------|
+| :--- | :------------- |
 | `--max N` | Process only N items (default: unlimited) |
 | `--debug` | Enable verbose debug logging |
 | `--headless` | Force headless browser mode |
@@ -124,7 +126,7 @@ python main.py <mode> [options]
 ### 🤖 Automated Scheduling
 
 | Mode | Schedule | Action |
-|------|----------|--------|
+| :--- | :------- | :----- |
 | 🎀 **Rekhta** | Every 1 hour | Scrape new poetry |
 | 📝 **Post** | Every 2 hours | Create posts from queue |
 
@@ -133,7 +135,7 @@ python main.py <mode> [options]
 Create these secrets in your GitHub repository settings:
 
 | Secret | Description | Required |
-|--------|-------------|----------|
+| :----- | :------------- | :------- |
 | `DD_LOGIN_EMAIL` | DamaDam username | ✅ |
 | `DD_LOGIN_PASS` | DamaDam password | ✅ |
 | `DD_SHEET_ID` | Google Sheets ID | ✅ |
@@ -146,10 +148,11 @@ Create these secrets in your GitHub repository settings:
 ## 📊 Sheet Structure
 
 ### 📝 PostQueue
+
 **Populated by Rekhta Mode, consumed by Post Mode**
 
 | Column | Description |
-|--------|-------------|
+| :----- | :------------- |
 | `STATUS` | Pending → Done/Failed/Repeating |
 | `TYPE` | image or text |
 | `TITLE` | Roman Urdu first line |
@@ -161,10 +164,11 @@ Create these secrets in your GitHub repository settings:
 | `NOTES` | Error details |
 
 ### 📋 PostLog
+
 **History of all posts created**
 
 | Column | Description |
-|--------|-------------|
+| :----- | :------------- |
 | `TIMESTAMP` | PKT timestamp |
 | `TYPE` | image or text |
 | `POET` | Poet name |
@@ -206,16 +210,19 @@ DD-Post-Bot/
 
 ## 🎯 Post Mode Rules
 
-### ⏱️ **Smart Cooldown**
+### ⏱️ Smart Cooldown
+
 - **Minimum 135 seconds** between posts (DamaDam rate limit)
 - Automatic timing to avoid restrictions
 
-### 🔄 **Duplicate Detection**
+### 🔄 Duplicate Detection
+
 - Checks if `IMG_LINK` was already posted
 - Marks duplicates as `Repeating` and skips them
 - Prevents spam and maintains content quality
 
-### ⚡ **Error Handling**
+### ⚡ Error Handling
+
 - **Rate limit hit**: Wait required time → retry once
 - **Other errors**: Mark as `Failed`, continue with next item
 - **Never retry failed items automatically**
@@ -224,13 +231,15 @@ DD-Post-Bot/
 
 ## 🌟 Advanced Features
 
-### 🎨 **Rekhta Mode Highlights**
+### 🎨 Rekhta Mode Highlights
+
 - **Smart Pagination**: Resumes from last scraped page
 - **Rich Metadata**: Captures poet name, title, and image URLs
 - **Error Recovery**: Handles network issues gracefully
 - **Rate Limiting**: Respectful scraping with delays
 
-### 📝 **Post Mode Highlights**
+### 📝 Post Mode Highlights
+
 - **Image & Text Support**: Handles both media types
 - **Automatic Captions**: Supports Urdu translation formulas
 - **Status Tracking**: Complete audit trail in PostLog
@@ -243,7 +252,7 @@ DD-Post-Bot/
 ### 🔧 Common Issues
 
 | Issue | Solution |
-|-------|----------|
+| :---- | :------- |
 | **Browser fails to start** | Install Chrome/Chromium and update WebDriver |
 | **Sheets connection error** | Check credentials.json and sheet sharing permissions |
 | **Login failed** | Verify DamaDam credentials and try manual login first |
@@ -288,7 +297,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-### 🌟 **Star this repository if you find it helpful!**
+### 🌟 Star this repository if you find it helpful!
 
 [🔝 Back to Top](#-dd-post-bot---damadampk-automation)
 

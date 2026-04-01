@@ -242,44 +242,22 @@ def run(driver, sheets: SheetsManager, logger: Logger,
             stats["skipped"] += 1
 
         elif status == "Rate Limited":
-            wait_s = result.get("wait_seconds", Config.POST_COOLDOWN_SECONDS)
-            if stop_on_fail:
-                logger.warning(f"Rate limited — stop-on-fail active, leaving row Pending")
-                sheets.update_row_cells(ws, row_num, {
-                    col_status: "Pending",
-                    col_notes:  f"Rate limited @ {pkt_stamp()} — will retry",
-                })
-                break
+            wait_s = int(result.get("wait_seconds") or 0)
+            note = f"Rate limited @ {pkt_stamp()}"
+            if wait_s:
+                note += f" — wait ~{wait_s}s"
+            note += " — will retry next run"
+            logger.warning(note)
 
-            logger.warning(f"Rate limited — waiting {wait_s}s then retrying once...")
-            time.sleep(wait_s + 10)
+            # Keep Pending so the next scheduled run retries.
+            sheets.update_row_cells(ws, row_num, {
+                col_status: "Pending",
+                col_notes:  note[:80],
+            })
 
-            # One retry only for rate limiting
-            if post_type == "image":
-                result2 = _create_image_post(driver, img_link, _build_caption(item), logger)
-            else:
-                result2 = _create_text_post(driver, content, logger)
-
-            status2 = result2.get("status", "Error")
-            if status2 == "Posted":
-                post_url = result2.get("url", "")
-                logger.ok(f"✅ Retry successful: {post_url}")
-                sheets.update_row_cells(ws, row_num, {
-                    col_status:   "Done",
-                    col_post_url: post_url,
-                    col_notes:    f"Posted @ {pkt_stamp()} (retry)",
-                })
-                _write_post_log(sheets, item, post_url, "Posted", "")
-                posted_urls.add((img_link or "").lower())
-                last_post_time = time.time()
-                stats["posted"] += 1
-            else:
-                logger.error(f"Retry also failed: {status2}")
-                sheets.update_row_cells(ws, row_num, {
-                    col_status: "Pending",
-                    col_notes:  f"Rate limited retry failed @ {pkt_stamp()}",
-                })
-                # Don't increment failed count for rate limiting
+            # Important: stop processing more rows in this run. If we continue,
+            # we'll just hit upload-denied repeatedly and waste time.
+            break
 
         elif status == "Repeating":
             logger.warning(f"Row {row_num} — DamaDam duplicate image")
@@ -503,10 +481,15 @@ def _create_image_post(driver, img_url: str, caption: str, logger: Logger) -> Di
 
         # DamaDam real cooldown page — /share/photo/upload-denied/
         # Shows "Ye share ho ga X secs baad..." — their enforced posting gap.
-        # We use 180s wait. Leave the row Pending so next run retries it.
+        # Leave the row Pending so next run retries it. Don't sleep here; the
+        # caller may decide what to do.
         if "upload-denied" in final_url.lower() or "denied" in final_url.lower():
             logger.warning("DamaDam upload-denied — their cooldown active. Row stays Pending.")
-            return {"status": "Rate Limited", "url": final_url, "wait_seconds": 180}
+            wait_s = _detect_rate_limit(page_src) or 0
+            payload = {"status": "Rate Limited", "url": final_url}
+            if wait_s:
+                payload["wait_seconds"] = wait_s
+            return payload
 
         # Still on upload page → something went wrong
         if "upload" in final_url.lower() or "share" in final_url.lower():

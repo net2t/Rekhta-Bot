@@ -1,10 +1,22 @@
-name: 📝 Post Mode - Hourly Posting
+name: 📝 Post Mode
 
 on:
   schedule:
     # Run every hour at minute 5 (to avoid conflicts with other workflows)
     - cron: '5 * * * *'
   workflow_dispatch: # Allow manual triggering
+    inputs:
+      quantity:
+        description: 'Number of posts to create'
+        required: true
+        default: '1'
+        type: choice
+        options:
+        - '1'
+        - '2'
+        - '3'
+        - '5'
+        - '10'
 
 jobs:
   hourly-posting:
@@ -38,14 +50,14 @@ jobs:
         echo "DD_HEADLESS=1" >> .env
         echo "DD_DISABLE_IMAGES=1" >> .env
         
-    - name: 📝 Run Post Mode (Limit 1)
+    - name: 📝 Run Post Mode
       env:
         DD_LOGIN_EMAIL: ${{ secrets.DD_LOGIN_EMAIL }}
         DD_LOGIN_PASS: ${{ secrets.DD_LOGIN_PASS }}
         DD_SHEET_ID: ${{ secrets.DD_SHEET_ID }}
         GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
       run: |
-        python main.py post --max 1 --headless
+        python main.py post --max ${{ github.event.inputs.quantity || '1' }} --headless
         
     - name: 📊 Upload logs if any exist
       if: always()

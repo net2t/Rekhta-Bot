@@ -125,15 +125,32 @@ python main.py <mode> [options]
 
 ### 🤖 Automated Scheduling
 
-| Mode | Schedule | Limit | Action |
-| :--- | :------- | :---- | :----- |
-| � **Rekhta** | **Daily at 6:00 AM PKT** | 30 items | Scrape new poetry from rekhta.org |
-| 📝 **Post** | **Every Hour** (at :05) | 1 post | Create posts from queue |
+| Mode | Schedule | Default Limit | Action |
+| :--- | :------- | :------------ | :----- |
+| 🎨 **Rekhta Mode** | **Daily at 6:00 AM PKT** | 30 items | Scrape new poetry from rekhta.org |
+| 📝 **Post Mode** | **Every Hour** (at :05) | 1 post | Create posts from queue |
 
 ### 📋 Workflow Files
 
-- **`.github/workflows/rekhta-daily.yml`** - Daily poetry scraping
-- **`.github/workflows/post-hourly.yml`** - Hourly post publishing
+- **`.github/workflows/rekhta-daily.yml`** - 🎨 Rekhta Mode
+- **`.github/workflows/post-hourly.yml`** - 📝 Post Mode
+
+### 🎮 Manual Triggering (With Quantity Options)
+
+Both workflows support manual triggering with customizable quantities:
+
+**🎨 Rekhta Mode Options:**
+- 10, 20, 30, 50, or 100 poetry items
+
+**📝 Post Mode Options:**
+- 1, 2, 3, 5, or 10 posts
+
+To trigger manually:
+1. Go to **Actions** tab in your repository
+2. Select the workflow (Rekhta Mode or Post Mode)
+3. Click **"Run workflow"**
+4. Choose your desired quantity
+5. Click **"Run workflow"** to start
 
 ### 📝 Required Secrets
 

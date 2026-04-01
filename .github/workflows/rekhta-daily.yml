@@ -1,10 +1,22 @@
-name: 🎨 Rekhta Mode - Daily Poetry Scraping
+name: 🎨 Rekhta Mode
 
 on:
   schedule:
     # Run once every 24 hours at 6:00 AM PKT (1:00 AM UTC)
     - cron: '0 1 * * *'
   workflow_dispatch: # Allow manual triggering
+    inputs:
+      quantity:
+        description: 'Number of poetry items to scrape'
+        required: true
+        default: '30'
+        type: choice
+        options:
+        - '10'
+        - '20'
+        - '30'
+        - '50'
+        - '100'
 
 jobs:
   rekhta-scraping:
@@ -38,14 +50,14 @@ jobs:
         echo "DD_HEADLESS=1" >> .env
         echo "DD_DISABLE_IMAGES=1" >> .env
         
-    - name: 🎨 Run Rekhta Mode (Limit 30)
+    - name: 🎨 Run Rekhta Mode
       env:
         DD_LOGIN_EMAIL: ${{ secrets.DD_LOGIN_EMAIL }}
         DD_LOGIN_PASS: ${{ secrets.DD_LOGIN_PASS }}
         DD_SHEET_ID: ${{ secrets.DD_SHEET_ID }}
         GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
       run: |
-        python main.py rekhta --max 30 --headless
+        python main.py rekhta --max ${{ github.event.inputs.quantity || '30' }} --headless
         
     - name: 📊 Upload logs if any exist
       if: always()

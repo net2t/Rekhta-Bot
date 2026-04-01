@@ -402,6 +402,58 @@ def _create_image_post(driver, img_url: str, caption: str, logger: Logger) -> Di
             for elem in file_elements:
                 logger.info(f"  File-related element: {elem}")
             
+            # Check for upload buttons, drag-drop areas, or other upload mechanisms
+            logger.info("DIAGNOSTIC: Searching for upload buttons and drag-drop areas...")
+            upload_elements = driver.execute_script("""
+                var elements = [];
+                var all = document.querySelectorAll('*');
+                for (var i = 0; i < all.length; i++) {
+                    var el = all[i];
+                    var text = (el.textContent || '').toLowerCase();
+                    var className = (el.className || '').toLowerCase();
+                    var id = (el.id || '').toLowerCase();
+                    
+                    if (text.includes('upload') || text.includes('choose file') || text.includes('browse') ||
+                        text.includes('select') || text.includes('photo') || text.includes('image') ||
+                        className.includes('upload') || className.includes('file') || className.includes('drop') ||
+                        id.includes('upload') || id.includes('file') || id.includes('drop')) {
+                        elements.push({
+                            tag: el.tagName,
+                            text: el.textContent ? el.textContent.substring(0, 50) : 'no-text',
+                            className: el.className || 'no-class',
+                            id: el.id || 'no-id'
+                        });
+                    }
+                }
+                return elements.slice(0, 10); // Limit to first 10 results
+            """)
+            for elem in upload_elements:
+                logger.info(f"  Upload-related element: {elem}")
+            
+            # Check for any forms on the page
+            logger.info("DIAGNOSTIC: Checking forms on the page...")
+            forms = driver.execute_script("""
+                var forms = [];
+                var allForms = document.querySelectorAll('form');
+                for (var i = 0; i < allForms.length; i++) {
+                    var form = allForms[i];
+                    forms.push({
+                        action: form.action || 'no-action',
+                        method: form.method || 'no-method',
+                        id: form.id || 'no-id',
+                        className: form.className || 'no-class',
+                        inputCount: form.querySelectorAll('input').length
+                    });
+                }
+                return forms;
+            """)
+            for form in forms:
+                logger.info(f"  Form: {form}")
+            
+            # Check page title and URL for clues
+            logger.info(f"DIAGNOSTIC: Page title: {driver.title}")
+            logger.info(f"DIAGNOSTIC: Current URL: {driver.current_url}")
+            
             _dump(driver, logger, "ERROR_no_file_input")
             return {"status": "Form Error: no file input found", "url": driver.current_url}
 

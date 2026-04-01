@@ -1,5 +1,3 @@
-<div align="center">
-
 # 🌟 DD-Post-Bot - DamaDam.pk Automation
 
 ![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)
@@ -10,15 +8,11 @@
 **A sleek, modular automation bot for DamaDam.pk**  
 Specialized in Rekhta poetry scraping and automated posting with Google Sheets integration
 
-[🚀 **Quick Start](#-quick-start-local)] • [📖 **Documentation](#documentation)] • [⚙️ **Configuration](#-configuration)] • [🔧 **GitHub Actions](#github-actions)]
-
-</div>
+[🚀 Quick Start](#-quick-start-local) • [📖 Documentation](#-documentation) • [⚙️ Configuration](#-configuration) • [🔧 GitHub Actions](#github-actions)
 
 ---
 
 ## ✨ Features
-
-<div align="center">
 
 | 🎨 **Rekhta Mode** | 📝 **Post Mode** |
 |------------------|-----------------|
@@ -26,13 +20,12 @@ Specialized in Rekhta poetry scraping and automated posting with Google Sheets i
 | Auto-populate PostQueue sheet with metadata | Smart cooldown and duplicate detection |
 | Support for Roman Urdu and Urdu translations | Rate limit handling with automatic retries |
 
-</div>
-
 ---
 
 ## 🚀 Quick Start (Local)
 
 ### 📋 Prerequisites
+
 - Python 3.8 or higher
 - Google Cloud account with Sheets API enabled
 - DamaDam.pk account
@@ -41,7 +34,7 @@ Specialized in Rekhta poetry scraping and automated posting with Google Sheets i
 
 ```bash
 # Clone the repository
-git clone <your-repo-link>
+git clone https://github.com/net2t/Rekhta-Bot.git
 cd DD-Post-Bot
 
 # Install dependencies
@@ -49,14 +42,15 @@ pip install -r requirements.txt
 ```
 
 ### 🌐 Google Sheets Setup
+
 1. **Create Google Cloud Project**
    - Go to [Google Cloud Console](https://console.cloud.google.com/)
    - Enable **Google Sheets API** and **Google Drive API**
-   
+
 2. **Create Service Account**
    - Go to IAM & Admin → Service Accounts
    - Create new service account → download JSON key as `credentials.json`
-   
+
 3. **Share Your Sheet**
    - Create a new Google Sheet
    - Share it with the service account email (Editor access)
@@ -72,6 +66,7 @@ cp .env.sample .env
 ```
 
 **Required `.env` variables:**
+
 ```env
 DD_LOGIN_EMAIL=your_damadam_username
 DD_LOGIN_PASS=your_password
@@ -106,12 +101,14 @@ python main.py <mode> [options]
 ```
 
 #### Available Modes
+
 | Mode | Description | Example |
 |------|-------------|---------|
 | `rekhta` | Scrape poetry from Rekhta | `python main.py rekhta --max 30` |
 | `post` | Create posts from queue | `python main.py post --max 5` |
 
 #### Options
+
 | Flag | Description |
 |------|-------------|
 | `--max N` | Process only N items (default: unlimited) |
@@ -124,16 +121,12 @@ python main.py <mode> [options]
 
 ## 🔧 GitHub Actions
 
-<div align="center">
-
 ### 🤖 Automated Scheduling
 
 | Mode | Schedule | Action |
 |------|----------|--------|
 | 🎀 **Rekhta** | Every 1 hour | Scrape new poetry |
 | 📝 **Post** | Every 2 hours | Create posts from queue |
-
-</div>
 
 ### 📝 Required Secrets
 
@@ -295,12 +288,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-<div align="center">
-
 ### 🌟 **Star this repository if you find it helpful!**
 
-[🔝 **Back to Top](#-dd-post-bot---damadampk-automation)]
+[🔝 Back to Top](#-dd-post-bot---damadampk-automation)
 
 Made with ❤️ for automation enthusiasts
-
-</div>

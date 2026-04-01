@@ -230,7 +230,6 @@ def run(driver, sheets: SheetsManager, logger: Logger,
                 col_post_url: post_url,
                 col_notes:    f"Posted @ {pkt_stamp()}",
             })
-            sheets.log_action("POST", f"post_{post_type}", "", post_url, "Done")
             _write_post_log(sheets, item, post_url, "Posted", "")
             posted_urls.add((img_link or "").lower())
             last_post_time = time.time()
@@ -295,7 +294,6 @@ def run(driver, sheets: SheetsManager, logger: Logger,
                 col_notes:  status[:80],
             })
             _write_post_log(sheets, item, post_url, "Failed", status[:80])
-            sheets.log_action("POST", f"post_{post_type}", "", post_url, "Failed", status)
             stats["failed"] += 1
             if stop_on_fail:
                 break
@@ -304,12 +302,6 @@ def run(driver, sheets: SheetsManager, logger: Logger,
     logger.section(
         f"POST MODE DONE — Posted:{stats['posted']}  "
         f"Skipped:{stats['skipped']}  Failed:{stats['failed']}"
-    )
-    sheets.log_run(
-        "post",
-        {"posted": stats["posted"], "failed": stats["failed"], "skipped": stats["skipped"]},
-        duration_s=duration,
-        notes=f"{stats['posted']}/{stats['total']} posts published",
     )
     return stats
 

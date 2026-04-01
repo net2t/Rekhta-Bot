@@ -362,55 +362,6 @@ class SheetsManager:
     #  MasterLog
     # ════════════════════════════════════════════════════════════════════════════
 
-    def log_action(self, mode: str, action: str, nick: str = "",
-                   url: str = "", status: str = "", details: str = ""):
-        """
-        Append one row to the MasterLog sheet.
-        Called after every significant action across all modes.
-        """
-        ws = self.get_worksheet(Config.SHEET_LOGS,
-                                 headers=Config.LOGS_COLS)
-        if not ws:
-            return
-        self.append_row(ws, [
-            pkt_stamp(),  # TIMESTAMP
-            mode,         # MODE
-            action,       # ACTION
-            nick,         # NICK
-            url,          # URL
-            status,       # STATUS
-            details,      # DETAILS
-        ])
-
-    def log_run(self, mode: str, stats: dict, duration_s: float = 0.0, notes: str = ""):
-        """
-        Append one row to the RunLog sheet summarising a complete bot run.
-
-        Args:
-            mode:       Mode name (rekhta / post)
-            stats:      Dict with any of: added, posted, sent, failed, skipped
-            duration_s: Run duration in seconds
-            notes:      Optional extra info or error summary
-        """
-        ws = self.get_worksheet(Config.SHEET_RUN_LOG, headers=Config.RUN_LOG_COLS)
-        if not ws:
-            return
-        overall = "Done"
-        if stats.get("failed", 0) > 0 and not stats.get("posted", 0) and not stats.get("sent", 0):
-            overall = "Failed"
-        self.append_row(ws, [
-            pkt_stamp(),                       # TIMESTAMP
-            mode.upper(),                      # MODE
-            overall,                           # STATUS
-            str(stats.get("added",   "")),     # ADDED
-            str(stats.get("posted",  "")),     # POSTED
-            str(stats.get("sent",    "")),     # SENT
-            str(stats.get("failed",  "")),     # FAILED
-            str(stats.get("skipped", "")),     # SKIPPED
-            f"{duration_s:.0f}s",              # DURATION
-            notes[:200] if notes else "",      # NOTES
-        ])
-
     # ════════════════════════════════════════════════════════════════════════════
     #  ScrapeState — key/value pagination cursor store
     # ════════════════════════════════════════════════════════════════════════════

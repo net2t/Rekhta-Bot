@@ -90,20 +90,13 @@ class Config:
     # Log sheets    — bot writes results here after each action
     SHEET_POST_LOG  = "PostLog"    # Every post created (history per post)
 
-    # Master log    — one row per any action across all modes
-    SHEET_LOGS      = "Logs"
-
-    # Run log       — one row per bot run (mode, counts, duration)
-    SHEET_RUN_LOG   = "RunLog"
-
-    # Scrape state  — pagination cursor so Mode 1 resumes instead of re-scanning
+    # Scrape state  — pagination cursor so Rekhta mode resumes instead of re-scanning
     SHEET_SCRAPE_STATE = "ScrapeState"
 
     # Dashboard     — summary/analysis (formulas only, bot never writes here)
     SHEET_DASHBOARD = "Dashboard"
 
     # ── Keep old names as aliases so existing code doesn't break ──────────────
-    SHEET_MASTER_LOG = SHEET_LOGS          # backwards compat alias
     SHEET_POST_QUEUE = SHEET_POST_QUE      # backwards compat alias
 
     # ════════════════════════════════════════════════════════════════════════════
@@ -137,31 +130,6 @@ class Config:
         "NOTES",      # H  Error or extra detail
     ]
 
-    # ── Logs — master log (one row per any bot action) ─────────────────────────
-    LOGS_COLS = [
-        "TIMESTAMP",  # A
-        "MODE",       # B
-        "ACTION",     # C
-        "NICK",       # D
-        "URL",        # E
-        "STATUS",     # F
-        "DETAILS",    # G
-    ]
-
-    # ── RunLog — one row per complete bot run ─────────────────────────────────
-    RUN_LOG_COLS = [
-        "TIMESTAMP",  # A  When the run started (PKT)
-        "MODE",       # B  Which mode was run (rekhta/post)
-        "STATUS",     # C  Done / Failed / Stopped
-        "ADDED",      # D  Items added    (Rekhta: new rows in PostQue)
-        "POSTED",     # E  Posts created  (Post mode)
-        "SENT",       # F  Messages sent  (legacy field)
-        "FAILED",     # G  Failures
-        "SKIPPED",    # H  Skipped rows
-        "DURATION",   # I  How long the run took (seconds)
-        "NOTES",      # J  Extra info or error summary
-    ]
-
     # ── ScrapeState — key/value store for pagination cursors ──────────────────
     SCRAPE_STATE_COLS = [
         "KEY",        # A  State key (e.g. "rekhta_last_page")
@@ -171,7 +139,6 @@ class Config:
 
     # ── Backwards compat aliases for column lists ──────────────────────────────
     POST_QUEUE_COLS = POST_QUE_COLS
-    MASTER_LOG_COLS = LOGS_COLS
 
     # ════════════════════════════════════════════════════════════════════════════
     #  All sheets in setup order
@@ -179,8 +146,6 @@ class Config:
     ALL_SHEETS = {
         SHEET_POST_QUE:     POST_QUE_COLS,
         SHEET_POST_LOG:     POST_LOG_COLS,
-        SHEET_LOGS:         LOGS_COLS,
-        SHEET_RUN_LOG:      RUN_LOG_COLS,
         SHEET_SCRAPE_STATE: SCRAPE_STATE_COLS,
         # Dashboard has no fixed columns — it's formula-based, created empty
     }

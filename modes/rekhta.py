@@ -255,13 +255,6 @@ def run(driver, sheets: SheetsManager, logger: Logger,
         f"Last page:{last_good_page}"
     )
 
-    sheets.log_run(
-        "rekhta",
-        {"added": added, "skipped": dup_count, "failed": 0},
-        duration_s=duration,
-        notes=f"Scraped pages {start_page}→{last_good_page}. Total seen: {total_scraped}",
-    )
-
     return stats
 
 

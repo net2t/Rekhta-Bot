@@ -364,6 +364,44 @@ def _create_image_post(driver, img_url: str, caption: str, logger: Logger) -> Di
                 break
 
         if not file_input:
+            # DIAGNOSTIC: Log all input elements found on the page
+            logger.info("DIAGNOSTIC: Searching for all input elements on page...")
+            all_inputs = driver.find_elements(By.TAG_NAME, "input")
+            for i, inp in enumerate(all_inputs[:10]):  # Log first 10 inputs
+                try:
+                    input_type = inp.get_attribute("type") or "no-type"
+                    input_name = inp.get_attribute("name") or "no-name"
+                    input_id = inp.get_attribute("id") or "no-id"
+                    logger.info(f"  Input {i}: type='{input_type}' name='{input_name}' id='{input_id}'")
+                except:
+                    logger.info(f"  Input {i}: (error reading attributes)")
+            
+            # Also check for any file-related elements
+            logger.info("DIAGNOSTIC: Searching for elements with 'file' in attributes...")
+            file_elements = driver.execute_script("""
+                var elements = [];
+                var all = document.querySelectorAll('*');
+                for (var i = 0; i < all.length; i++) {
+                    var el = all[i];
+                    if (el.tagName.toLowerCase().includes('input') && 
+                        (el.type && el.type.includes('file')) ||
+                        el.name && el.name.toLowerCase().includes('file') ||
+                        el.id && el.id.toLowerCase().includes('file') ||
+                        el.className && el.className.toLowerCase().includes('file')) {
+                        elements.push({
+                            tag: el.tagName,
+                            type: el.type || 'no-type',
+                            name: el.name || 'no-name', 
+                            id: el.id || 'no-id',
+                            className: el.className || 'no-class'
+                        });
+                    }
+                }
+                return elements;
+            """)
+            for elem in file_elements:
+                logger.info(f"  File-related element: {elem}")
+            
             _dump(driver, logger, "ERROR_no_file_input")
             return {"status": "Form Error: no file input found", "url": driver.current_url}
 

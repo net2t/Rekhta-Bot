@@ -185,16 +185,15 @@ def run(driver, sheets: SheetsManager, logger: Logger,
 
         # -- Cooldown ---------------------------------------------------------
         # DamaDam enforces ~2min between posts. We use 180s (3min) for safety.
-        # The /share/photo/upload-denied/ page confirms this is their real limit.
-        if last_post_time > 0 and not Config.DRY_RUN:
+        # IMPORTANT: Only apply cooldown AFTER successful posts, not after failures
+        if last_post_time > 0 and not Config.DRY_RUN and stats["posted"] > 0:
             elapsed  = time.time() - last_post_time
             required = 180  # 3 minutes — safe margin above DamaDam's cooldown
             if elapsed < required:
                 wait = required - elapsed
-                logger.info(f"Cooldown: waiting {wait:.0f}s (3min gap between posts)...")
+                logger.info(f"Cooldown: waiting {wait:.0f}s (last post {elapsed:.0f}s ago)")
                 time.sleep(wait)
-
-        caption = _build_caption(item)
+                last_post_time = time.time()  # Reset after waiting
 
         # -- Create post ------------------------------------------------------
         if post_type == "image":
@@ -206,7 +205,7 @@ def run(driver, sheets: SheetsManager, logger: Logger,
                 })
                 stats["skipped"] += 1
                 continue
-            result = _create_image_post(driver, img_link, caption, logger)
+            result = _create_image_post(driver, img_link, _build_caption(item), logger)
         else:
             content = item["urdu"] or item["title"]
             if not content:
@@ -248,36 +247,39 @@ def run(driver, sheets: SheetsManager, logger: Logger,
                 logger.warning(f"Rate limited — stop-on-fail active, leaving row Pending")
                 sheets.update_row_cells(ws, row_num, {
                     col_status: "Pending",
-                    col_notes:  f"Rate limited @ {pkt_stamp()} — retried next run",
+                    col_notes:  f"Rate limited @ {pkt_stamp()} — will retry",
                 })
                 break
 
             logger.warning(f"Rate limited — waiting {wait_s}s then retrying once...")
             time.sleep(wait_s + 10)
 
-            # One retry
+            # One retry only for rate limiting
             if post_type == "image":
-                result2 = _create_image_post(driver, img_link, caption, logger)
+                result2 = _create_image_post(driver, img_link, _build_caption(item), logger)
             else:
-                result2 = _create_text_post(driver, item["urdu"] or item["title"], logger)
+                result2 = _create_text_post(driver, content, logger)
 
-            if result2.get("status") == "Posted":
-                post_url2 = result2.get("url", "")
-                logger.ok(f"✅ Post published after retry: {post_url2}")
+            status2 = result2.get("status", "Error")
+            if status2 == "Posted":
+                post_url = result2.get("url", "")
+                logger.ok(f"✅ Retry successful: {post_url}")
                 sheets.update_row_cells(ws, row_num, {
                     col_status:   "Done",
-                    col_post_url: post_url2,
-                    col_notes:    f"Posted (after rate limit wait) @ {pkt_stamp()}",
+                    col_post_url: post_url,
+                    col_notes:    f"Posted @ {pkt_stamp()} (retry)",
                 })
+                _write_post_log(sheets, item, post_url, "Posted", "")
                 posted_urls.add((img_link or "").lower())
                 last_post_time = time.time()
                 stats["posted"] += 1
             else:
+                logger.error(f"Retry also failed: {status2}")
                 sheets.update_row_cells(ws, row_num, {
-                    col_status: "Failed",
-                    col_notes:  f"Rate limit retry failed: {result2.get('status','?')}",
+                    col_status: "Pending",
+                    col_notes:  f"Rate limited retry failed @ {pkt_stamp()}",
                 })
-                stats["failed"] += 1
+                # Don't increment failed count for rate limiting
 
         elif status == "Repeating":
             logger.warning(f"Row {row_num} — DamaDam duplicate image")
@@ -364,96 +366,6 @@ def _create_image_post(driver, img_url: str, caption: str, logger: Logger) -> Di
                 break
 
         if not file_input:
-            # DIAGNOSTIC: Log all input elements found on the page
-            logger.info("DIAGNOSTIC: Searching for all input elements on page...")
-            all_inputs = driver.find_elements(By.TAG_NAME, "input")
-            for i, inp in enumerate(all_inputs[:10]):  # Log first 10 inputs
-                try:
-                    input_type = inp.get_attribute("type") or "no-type"
-                    input_name = inp.get_attribute("name") or "no-name"
-                    input_id = inp.get_attribute("id") or "no-id"
-                    logger.info(f"  Input {i}: type='{input_type}' name='{input_name}' id='{input_id}'")
-                except:
-                    logger.info(f"  Input {i}: (error reading attributes)")
-            
-            # Also check for any file-related elements
-            logger.info("DIAGNOSTIC: Searching for elements with 'file' in attributes...")
-            file_elements = driver.execute_script("""
-                var elements = [];
-                var all = document.querySelectorAll('*');
-                for (var i = 0; i < all.length; i++) {
-                    var el = all[i];
-                    if (el.tagName.toLowerCase().includes('input') && 
-                        (el.type && el.type.includes('file')) ||
-                        el.name && el.name.toLowerCase().includes('file') ||
-                        el.id && el.id.toLowerCase().includes('file') ||
-                        el.className && el.className.toLowerCase().includes('file')) {
-                        elements.push({
-                            tag: el.tagName,
-                            type: el.type || 'no-type',
-                            name: el.name || 'no-name', 
-                            id: el.id || 'no-id',
-                            className: el.className || 'no-class'
-                        });
-                    }
-                }
-                return elements;
-            """)
-            for elem in file_elements:
-                logger.info(f"  File-related element: {elem}")
-            
-            # Check for upload buttons, drag-drop areas, or other upload mechanisms
-            logger.info("DIAGNOSTIC: Searching for upload buttons and drag-drop areas...")
-            upload_elements = driver.execute_script("""
-                var elements = [];
-                var all = document.querySelectorAll('*');
-                for (var i = 0; i < all.length; i++) {
-                    var el = all[i];
-                    var text = (el.textContent || '').toLowerCase();
-                    var className = (el.className || '').toLowerCase();
-                    var id = (el.id || '').toLowerCase();
-                    
-                    if (text.includes('upload') || text.includes('choose file') || text.includes('browse') ||
-                        text.includes('select') || text.includes('photo') || text.includes('image') ||
-                        className.includes('upload') || className.includes('file') || className.includes('drop') ||
-                        id.includes('upload') || id.includes('file') || id.includes('drop')) {
-                        elements.push({
-                            tag: el.tagName,
-                            text: el.textContent ? el.textContent.substring(0, 50) : 'no-text',
-                            className: el.className || 'no-class',
-                            id: el.id || 'no-id'
-                        });
-                    }
-                }
-                return elements.slice(0, 10); // Limit to first 10 results
-            """)
-            for elem in upload_elements:
-                logger.info(f"  Upload-related element: {elem}")
-            
-            # Check for any forms on the page
-            logger.info("DIAGNOSTIC: Checking forms on the page...")
-            forms = driver.execute_script("""
-                var forms = [];
-                var allForms = document.querySelectorAll('form');
-                for (var i = 0; i < allForms.length; i++) {
-                    var form = allForms[i];
-                    forms.push({
-                        action: form.action || 'no-action',
-                        method: form.method || 'no-method',
-                        id: form.id || 'no-id',
-                        className: form.className || 'no-class',
-                        inputCount: form.querySelectorAll('input').length
-                    });
-                }
-                return forms;
-            """)
-            for form in forms:
-                logger.info(f"  Form: {form}")
-            
-            # Check page title and URL for clues
-            logger.info(f"DIAGNOSTIC: Page title: {driver.title}")
-            logger.info(f"DIAGNOSTIC: Current URL: {driver.current_url}")
-            
             _dump(driver, logger, "ERROR_no_file_input")
             return {"status": "Form Error: no file input found", "url": driver.current_url}
 

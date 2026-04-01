@@ -1,0 +1,56 @@
+name: 🎨 Rekhta Mode - Daily Poetry Scraping
+
+on:
+  schedule:
+    # Run once every 24 hours at 6:00 AM PKT (1:00 AM UTC)
+    - cron: '0 1 * * *'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  rekhta-scraping:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🐍 Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: 📦 Install dependencies
+      run: |
+        pip install -r requirements.txt
+        
+    - name: 🔧 Set up environment
+      env:
+        DD_LOGIN_EMAIL: ${{ secrets.DD_LOGIN_EMAIL }}
+        DD_LOGIN_PASS: ${{ secrets.DD_LOGIN_PASS }}
+        DD_SHEET_ID: ${{ secrets.DD_SHEET_ID }}
+        GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+      run: |
+        echo "DD_LOGIN_EMAIL=$DD_LOGIN_EMAIL" >> .env
+        echo "DD_LOGIN_PASS=$DD_LOGIN_PASS" >> .env
+        echo "DD_SHEET_ID=$DD_SHEET_ID" >> .env
+        echo "GOOGLE_CREDENTIALS_JSON=$GOOGLE_CREDENTIALS_JSON" >> .env
+        echo "DD_DEBUG=0" >> .env
+        echo "DD_HEADLESS=1" >> .env
+        echo "DD_DISABLE_IMAGES=1" >> .env
+        
+    - name: 🎨 Run Rekhta Mode (Limit 30)
+      env:
+        DD_LOGIN_EMAIL: ${{ secrets.DD_LOGIN_EMAIL }}
+        DD_LOGIN_PASS: ${{ secrets.DD_LOGIN_PASS }}
+        DD_SHEET_ID: ${{ secrets.DD_SHEET_ID }}
+        GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+      run: |
+        python main.py rekhta --max 30 --headless
+        
+    - name: 📊 Upload logs if any exist
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: rekhta-logs-${{ github.run_number }}
+        path: logs/
+        retention-days: 7

@@ -125,10 +125,15 @@ python main.py <mode> [options]
 
 ### 🤖 Automated Scheduling
 
-| Mode | Schedule | Action |
-| :--- | :------- | :----- |
-| 🎀 **Rekhta** | Every 1 hour | Scrape new poetry |
-| 📝 **Post** | Every 2 hours | Create posts from queue |
+| Mode | Schedule | Limit | Action |
+| :--- | :------- | :---- | :----- |
+| � **Rekhta** | **Daily at 6:00 AM PKT** | 30 items | Scrape new poetry from rekhta.org |
+| 📝 **Post** | **Every Hour** (at :05) | 1 post | Create posts from queue |
+
+### 📋 Workflow Files
+
+- **`.github/workflows/rekhta-daily.yml`** - Daily poetry scraping
+- **`.github/workflows/post-hourly.yml`** - Hourly post publishing
 
 ### 📝 Required Secrets
 
@@ -140,8 +145,13 @@ Create these secrets in your GitHub repository settings:
 | `DD_LOGIN_PASS` | DamaDam password | ✅ |
 | `DD_SHEET_ID` | Google Sheets ID | ✅ |
 | `GOOGLE_CREDENTIALS_JSON` | Service account JSON | ✅ |
-| `DD_LOGIN_EMAIL2` | Backup account username | ❌ |
-| `DD_LOGIN_PASS2` | Backup account password | ❌ |
+
+### 🚀 Enabling Workflows
+
+1. Go to your repository's **Actions** tab
+2. Click **I understand my workflows, go ahead and enable them**
+3. Workflows will run automatically on schedule
+4. You can also trigger workflows manually from the Actions page
 
 ---
 

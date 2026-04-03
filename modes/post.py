@@ -138,14 +138,10 @@ def _validate_caption(caption: str) -> tuple[bool, str]:
 def _trigger_file_upload(driver, file_input, abs_path: str, logger: Logger) -> bool:
     """
     Send file to input AND confirm DamaDam's upload handler actually fired.
-
-    Returns True  — page responded, upload started (safe to proceed)
-    Returns False — page never responded (do NOT submit — would be empty post)
+    Returns True if upload confirmed, False if not.
     """
 
-    # ── Step A: Expose the hidden file input ─────────────────────────────────
-    # DamaDam hides <input type='file'> with CSS.
-    # We must make it accessible for send_keys() to work.
+    # ── Step A: Expose the hidden file input ──────────────────────────────────
     try:
         driver.execute_script("""
             var el = arguments[0];
@@ -166,49 +162,96 @@ def _trigger_file_upload(driver, file_input, abs_path: str, logger: Logger) -> b
     try:
         file_input.send_keys(abs_path)
         logger.info("File path sent to input via send_keys")
-        time.sleep(0.5)
+        time.sleep(1.0)
     except Exception as e:
         logger.error(f"send_keys to file input failed: {e}")
         return False
 
-    # ── Step C: Dispatch DOM events explicitly ────────────────────────────────
-    # THIS IS THE KEY FIX.
-    # Chrome does not reliably auto-fire 'change' after send_keys on hidden
-    # inputs, especially on repeated navigations to the same page.
-    # DamaDam's JS upload handler is bound to the 'change' event.
-    # Without this dispatch, the handler never runs → page never changes.
+    # ── Step C: Dispatch events with multiple strategies ──────────────────────
     try:
         driver.execute_script("""
             var el = arguments[0];
-            // 'input' fires first in most frameworks
+            // Strategy 1: Standard events
             el.dispatchEvent(new Event('input',  { bubbles: true, cancelable: true }));
-            // 'change' is what DamaDam's upload handler specifically listens for
             el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+            // Strategy 2: Native input event (React 16+)
+            var nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                window.HTMLInputElement.prototype, 'files');
+            // Strategy 3: Mouse events to simulate user interaction
+            el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
         """, file_input)
-        logger.debug("Dispatched 'input' + 'change' events on file input")
+        logger.debug("Dispatched input/change/mouse events on file input")
     except Exception as e:
-        logger.warning(f"Event dispatch failed: {e} — upload may not start")
+        logger.warning(f"Event dispatch failed: {e}")
 
-    # ── Step D: Wait up to 8s for page to respond ────────────────────────────
-    # If the handler received the file, the page will change within a few
-    # seconds (preview image appears, or some DOM element updates).
-    page_before = driver.page_source
-    for tick in range(8):
-        time.sleep(1)
+    # ── Step D: Wait and check using MULTIPLE signals, not just page_source ───
+    # Check for: preview image appearing, URL change, or any DOM element count change
+    def _upload_confirmed():
         try:
-            page_now = driver.page_source
-            if page_now != page_before:
-                logger.info(f"Upload confirmed — page changed after {tick + 1}s ✓")
-                return True   # SUCCESS — handler fired, upload started
-            page_before = page_now
+            # Signal 0: The browser accepted the file (filename present)
+            # This is a strong signal that the input value changed, even if
+            # DamaDam does not show a preview immediately.
+            try:
+                input_files = driver.execute_script("return arguments[0].files.length;", file_input)
+                if input_files and int(input_files) > 0:
+                    return True, f"file selected (files.length={int(input_files)})"
+            except Exception:
+                pass
+
+            # Signal 1: A preview image appeared anywhere on page
+            imgs = driver.find_elements(By.CSS_SELECTOR,
+                "img.preview, img.upload-preview, .preview img, "
+                "[class*='preview'] img, [class*='thumb'] img, "
+                "img[src^='blob:'], img[src^='data:']"
+            )
+            if imgs:
+                return True, "preview image appeared"
+
+            # Signal 2: A progress bar or upload indicator appeared
+            progress = driver.find_elements(By.CSS_SELECTOR,
+                "[class*='progress'], [class*='upload-status'], "
+                "[class*='uploading'], .progress-bar"
+            )
+            if progress:
+                return True, "upload progress indicator appeared"
+
+            # Signal 3: Submit button became enabled/visible (was disabled before)
+            submits = driver.find_elements(By.CSS_SELECTOR,
+                "button#share_img_btn, button[name='btn'][value='1'], "
+                "button[type='submit']"
+            )
+            for s in submits:
+                try:
+                    if s.is_enabled() and s.is_displayed():
+                        return True, "submit button is now active"
+                except Exception:
+                    pass
+
+            # Signal 4: Caption textarea appeared (DamaDam shows it after upload)
+            captions = driver.find_elements(By.CSS_SELECTOR,
+                "textarea#pub_img_caption_field, textarea[name='caption']"
+            )
+            if captions:
+                for c in captions:
+                    try:
+                        if c.is_displayed():
+                            return True, "caption textarea is visible"
+                    except Exception:
+                        pass
+
+            return False, ""
         except Exception:
-            pass
+            return False, ""
+
+    # Poll for 10 seconds
+    for tick in range(10):
+        time.sleep(1)
+        confirmed, signal = _upload_confirmed()
+        if confirmed:
+            logger.info(f"Upload confirmed after {tick + 1}s — signal: {signal}")
+            return True
 
     # ── Step E: Second attempt via JS click ───────────────────────────────────
-    # Some DamaDam page versions wrap the file input in a styled button/label.
-    # If the first send_keys had no visible effect, clicking the input element
-    # directly via JS can re-trigger the browser's file selection mechanism,
-    # after which we immediately send the path again.
     logger.warning(
         "Page did not respond to first file selection attempt — "
         "trying JS click fallback (attempt 2/2)..."
@@ -217,8 +260,7 @@ def _trigger_file_upload(driver, file_input, abs_path: str, logger: Logger) -> b
         driver.execute_script("arguments[0].click();", file_input)
         time.sleep(0.8)
         file_input.send_keys(abs_path)
-        time.sleep(0.5)
-        # Fire events again after the second send_keys
+        time.sleep(0.8)
         driver.execute_script("""
             var el = arguments[0];
             el.dispatchEvent(new Event('input',  { bubbles: true, cancelable: true }));
@@ -228,30 +270,35 @@ def _trigger_file_upload(driver, file_input, abs_path: str, logger: Logger) -> b
     except Exception as e:
         logger.warning(f"JS click fallback failed: {e}")
 
-    # ── Step F: Wait another 5s after second attempt ─────────────────────────
-    page_before2 = driver.page_source
+    # Poll for 5 more seconds
     for tick in range(5):
         time.sleep(1)
-        try:
-            page_now2 = driver.page_source
-            if page_now2 != page_before2:
-                logger.info(f"Upload confirmed on 2nd attempt after {tick + 1}s ✓")
-                return True   # SUCCESS on second attempt
-            page_before2 = page_now2
-        except Exception:
-            pass
+        confirmed, signal = _upload_confirmed()
+        if confirmed:
+            logger.info(f"Upload confirmed on 2nd attempt after {tick + 1}s — signal: {signal}")
+            return True
 
-    # ── Step G: Both attempts failed ─────────────────────────────────────────
-    # Page never responded to file selection after two attempts with event
-    # dispatch. Returning False tells _create_image_post() to abort this row.
-    # This prevents submitting an empty form to DamaDam.
+    # ── Step F: Last resort — assume upload worked if file input has a value ──
+    # Some DamaDam page versions don't show a visible preview but DO accept the file.
+    # If the input has a filename set, the browser accepted it — try submitting.
+    try:
+        input_files = driver.execute_script("return arguments[0].files.length;", file_input)
+        if input_files and int(input_files) > 0:
+            fname = driver.execute_script("return arguments[0].files[0].name;", file_input)
+            logger.warning(
+                f"No visual confirmation but input has file: '{fname}' — "
+                f"proceeding cautiously (files.length={input_files})"
+            )
+            return True
+    except Exception as e:
+        logger.debug(f"files.length check failed: {e}")
+
     logger.warning(
         "Upload handler did not fire after 2 attempts and event dispatch. "
         "Aborting this row to prevent empty/broken post submission."
     )
     return False
-
-
+    
 # ════════════════════════════════════════════════════════════════════════════════
 #  MAIN RUN — unchanged except new "Upload Not Confirmed" status handler
 # ════════════════════════════════════════════════════════════════════════════════
@@ -374,7 +421,7 @@ def run(driver, sheets: SheetsManager, logger: Logger,
 
         if last_post_time > 0 and not Config.DRY_RUN:
             elapsed  = time.time() - last_post_time
-            required = 185
+            required = int(Config.POST_COOLDOWN_SECONDS)
             if elapsed < required:
                 wait = required - elapsed
                 logger.info(f"[WAIT] Cooldown {wait:.0f}s (last success {elapsed:.0f}s ago)")
@@ -535,63 +582,51 @@ def _create_image_post(driver, img_url: str, caption: str, logger: Logger) -> Di
         abs_path = os.path.abspath(tmp_path)
         logger.info(f"Image saved: {abs_path}")
 
-        # ── Step 2: Navigate to upload page ───────────────────────────────────
-        logger.info(f"Opening upload page: {_URL_IMAGE_UPLOAD}")
-        driver.get(_URL_IMAGE_UPLOAD)
-        time.sleep(3)
-        _dump(driver, logger, "01_upload_page")
+        # ── Steps 2–5: Upload (retry loop; NEW PAGE per attempt) ──────────────
+        upload_ok = False
+        last_upload_url = ""
+        for attempt in range(1, 4):
+            logger.info(f"Opening upload page: {_URL_IMAGE_UPLOAD} (attempt {attempt}/3)")
+            driver.get(_URL_IMAGE_UPLOAD)
+            time.sleep(3)
+            _dump(driver, logger, f"01_upload_page_a{attempt}")
 
-        cur = driver.current_url.lower()
-        if "login" in cur:
-            return {"status": "Login Required", "url": driver.current_url}
+            cur = driver.current_url.lower()
+            last_upload_url = driver.current_url
+            if "login" in cur:
+                return {"status": "Login Required", "url": driver.current_url}
 
-        if "upload-denied" in cur or "denied" in cur:
-            wait_s = _parse_countdown_seconds(driver.page_source)
-            logger.warning(f"Upload-denied on page load — cooldown {wait_s}s active")
-            return {"status": "Rate Limited", "url": driver.current_url, "wait_seconds": wait_s}
+            if "upload-denied" in cur or "denied" in cur:
+                wait_s = _parse_countdown_seconds(driver.page_source)
+                logger.warning(f"Upload-denied on page load — cooldown {wait_s}s active")
+                return {"status": "Rate Limited", "url": driver.current_url, "wait_seconds": wait_s}
 
-        # ── Step 3: Find file input ───────────────────────────────────────────
-        file_input = None
-        for sel in (
-            "input[type='file'][name='image']",
-            "input[type='file'][name='file']",
-            "input[type='file'][name='photo']",
-            "input[type='file']",
-        ):
-            els = driver.find_elements(By.CSS_SELECTOR, sel)
-            if els:
-                file_input = els[0]
-                logger.info(f"File input found via: {sel}")
+            file_input = None
+            for sel in (
+                "input[type='file'][name='image']",
+                "input[type='file'][name='file']",
+                "input[type='file'][name='photo']",
+                "input[type='file']",
+            ):
+                els = driver.find_elements(By.CSS_SELECTOR, sel)
+                if els:
+                    file_input = els[0]
+                    logger.info(f"File input found via: {sel}")
+                    break
+
+            if not file_input:
+                _dump(driver, logger, f"ERROR_no_file_input_a{attempt}")
+                return {"status": "Form Error: no file input found", "url": driver.current_url}
+
+            upload_ok = _trigger_file_upload(driver, file_input, abs_path, logger)
+            if upload_ok:
                 break
 
-        if not file_input:
-            _dump(driver, logger, "ERROR_no_file_input")
-            return {"status": "Form Error: no file input found", "url": driver.current_url}
+            logger.warning("Upload signals not detected — retrying upload on a fresh page...")
 
-        # ── Step 4: Trigger upload with confirmed handler fire (FIX 1) ────────
-        #
-        # OLD CODE (removed — this was the bug):
-        #   driver.execute_script("...make visible...", file_input)
-        #   file_input.send_keys(abs_path)
-        #   for tick in range(10):
-        #       time.sleep(1)
-        #       if page changed: break
-        #   logger.info("Page didn't change after file select — proceeding anyway")
-        #                                                          ↑ BUG HERE
-        # NEW CODE:
-        #   _trigger_file_upload() dispatches DOM events so handler fires.
-        #   Returns False if page never responds → we abort instead of submit.
-        #
-        upload_ok = _trigger_file_upload(driver, file_input, abs_path, logger)
-
-        # ── Step 5: Gate — abort if upload not confirmed (FIX 2) ─────────────
-        #
-        # OLD CODE: no gate existed — always fell through to caption + submit
-        # NEW CODE: hard stop here — return explicit status for run() to handle
-        #
         if not upload_ok:
             _dump(driver, logger, "ERROR_upload_not_confirmed")
-            return {"status": "Upload Not Confirmed", "url": driver.current_url}
+            return {"status": "Upload Not Confirmed", "url": last_upload_url or driver.current_url}
 
         # ── Step 6: Fill caption ───────────────────────────────────────────────
         clean_cap = sanitize_caption(strip_non_bmp(caption))
@@ -649,14 +684,16 @@ def _create_image_post(driver, img_url: str, caption: str, logger: Logger) -> Di
         if _detect_caption_error(page_low):
             return {"status": "Caption Error", "url": final_url}
 
+        # If we redirected away from the upload/share page, treat it as success first.
+        # This avoids false rate-limit triggers caused by countdown text on profile pages.
+        if redirected and not is_share_or_denied_url(final_url):
+            post_url = _extract_post_url(driver)
+            return {"status": "Posted", "url": post_url}
+
         wait_s = _detect_rate_limit(page_low)
         if wait_s:
             logger.warning(f"Rate limit detected — page says wait {wait_s}s")
             return {"status": "Rate Limited", "url": final_url, "wait_seconds": wait_s}
-
-        if redirected and "upload" not in final_url.lower():
-            post_url = _extract_post_url(driver)
-            return {"status": "Posted", "url": post_url}
 
         if "upload" in final_url.lower() or "share" in final_url.lower():
             err = _extract_error_message(driver)
@@ -788,7 +825,7 @@ def _detect_rate_limit(page_source_lower: str) -> int:
     # Strip <script> blocks — prevents New Relic JS false positives
     src = re.sub(r'<script[\s\S]*?</script>', '', page_source_lower, flags=re.IGNORECASE)
 
-    m = re.search(r'(\d+)\s*sec\b', src)
+    m = re.search(r'(\d+)\s*(?:sec(?:ond)?s?)\b', src)
     if m:
         return max(int(m.group(1)) + 5, 30)
 

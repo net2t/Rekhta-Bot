@@ -58,7 +58,7 @@ class Config:
     MSG_DELAY_SECONDS = float(os.getenv("DD_MSG_DELAY_SECONDS", "3") or "3")
 
     # ── Post Mode ─────────────────────────────────────────────────────────────
-    POST_COOLDOWN_SECONDS = int(os.getenv("DD_POST_COOLDOWN_SECONDS", "135") or "135")
+    POST_COOLDOWN_SECONDS = int(os.getenv("DD_POST_COOLDOWN_SECONDS", "122") or "122")
     POST_CAPTION_MAX_LEN  = int(os.getenv("DD_POST_CAPTION_MAX_LEN",  "300") or "300")
     POST_TAGS_MAX_LEN     = int(os.getenv("DD_POST_TAGS_MAX_LEN",     "120") or "120")
     POST_MAX_REPEAT_CHARS = int(os.getenv("DD_POST_MAX_REPEAT_CHARS",   "6") or "6")

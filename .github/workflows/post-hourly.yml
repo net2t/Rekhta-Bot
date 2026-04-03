@@ -2,7 +2,7 @@ name: 📝 Post Mode
 
 on:
   schedule:
-    # Run every hour at minute 5 (to avoid conflicts with other workflows)
+    # Run every hour at minute 5 (PKT timezone - UTC+5)
     - cron: '5 * * * *'
   workflow_dispatch: # Allow manual triggering
     inputs:

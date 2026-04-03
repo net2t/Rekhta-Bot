@@ -2,8 +2,8 @@ name: 🎨 Rekhta Mode
 
 on:
   schedule:
-    # Run once every 24 hours at 6:00 AM PKT (1:00 AM UTC)
-    - cron: '0 1 * * *'
+    # Run once every 24 hours at 12:05 AM PKT (7:05 PM UTC previous day)
+    - cron: '5 19 * * *'
   workflow_dispatch: # Allow manual triggering
     inputs:
       quantity:

@@ -127,7 +127,7 @@ python main.py <mode> [options]
 
 | Mode | Schedule | Default Limit | Action |
 | :--- | :------- | :------------ | :----- |
-| 🎨 **Rekhta Mode** | **Daily at 6:00 AM PKT** | 30 items | Scrape new poetry from rekhta.org |
+| 🎨 **Rekhta Mode** | **Daily at 12:05 AM PKT** | 30 items | Scrape new poetry from rekhta.org |
 | 📝 **Post Mode** | **Every Hour** (at :05) | 1 post | Create posts from queue |
 
 ### 📋 Workflow Files
